@@ -23,16 +23,16 @@ end
 # @param group_name [String] Identifies the group
 # @param email_list [Array<String>] Email addresses of all the members
 # @return [String] Dropbox team group_id
-def update_dropbox_group(group_name:, email_list:, debug: false, trace: false)
+def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
   puts "update_dropbox_group #{group_name}"
-  if debug
+  if dryrun || trace
     puts "Members should be #{email_list}"
     p email_list
   end
   current_members_email = []
   if (group_id = @dbx_info.group_id(group_name: group_name, trace: trace) ) == nil
     puts "Creating Group '#{group_name}'"
-    if !debug
+    if !dryrun
       r = @dbx_mng.group_create(group_name: group_name, trace: trace)
       group_id = r["group_id"]
     end
@@ -57,12 +57,12 @@ def update_dropbox_group(group_name:, email_list:, debug: false, trace: false)
   
   puts "Adding these users to Group '#{group_name}'"
   p add_these_users
-  @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !debug
+  @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !dryrun
   puts
   
   puts "Removin these users from Group '#{group_name}'"
   p remove_these_users
-  @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0  && !debug
+  @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0  && !dryrun
   puts
   
   return group_id
@@ -70,8 +70,8 @@ end
 
 # create_dropbox_team_folder_from_research_code, and associated RW and RO ACL groups.
 # @param research_projects [Array<Hash>] Each Array member defines a research project we need to process {:research_code => 'x', :team_folder => 'x'}
-# @param debug [Boolean] Optional debug flag. If true, outputs what would happen, but doesn't do anything.
-def create_dropbox_team_folder_from_research_code(research_projects: , debug: false, trace: false)
+# @param dryrun [Boolean] Optional dryrun flag. If true, outputs what would happen, but doesn't do anything.
+def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: false, trace: false)
   research_code = research_projects[:research_code]
   team_folder = research_projects[:team_folder]
   rw_group = research_code + '_rw' + '.eresearch'
@@ -97,7 +97,7 @@ def create_dropbox_team_folder_from_research_code(research_projects: , debug: fa
   
   if (team_folder_id = @dbx_file.team_folder_id(folder_name: team_folder, trace: trace)) == nil
     puts "Creating Team Folder #{team_folder}"
-    if !debug
+    if !dryrun
       r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team already exists
       team_folder_id = r["team_folder_id"]
     end
@@ -106,15 +106,15 @@ def create_dropbox_team_folder_from_research_code(research_projects: , debug: fa
   end
 
   puts "Adding members from LDAP group #{traverse_group}"
-  p( member_array_t ) if debug
-  if  member_array_t.length > 0 && !debug
+  p( member_array_t ) if dryrun || trace
+  if  member_array_t.length > 0 && !dryrun
     @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, trace: trace) #Doesn't matter if the users already exist
   end
   puts
 
-  group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, debug: debug, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !debug
+  group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
+  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !dryrun
 
-  group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, debug: debug, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !debug
+  group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
+  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !dryrun
 end

@@ -4,8 +4,8 @@ require_relative '../rlib/ldap.rb' #json to class with accessor methods
 require_relative '../rlib/dropbox.rb' #json to class with accessor methods
 require_relative '../rlib/uoa.rb' #Localized front ends to dropbox and ldap calls.
 
-DEBUG=false
-TRACE=false
+DRYRUN=false #Run through actions, printing what would have been done, but don't execute them
+TRACE=false #Dump output of calls to dropbox
 
 conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 @conf = WIKK::Configuration.new(conf_file)
@@ -19,6 +19,6 @@ research_projects = JSON.parse(File.read("#{File.expand_path(File.dirname(__FILE
 
 research_projects.each do |rp|
   research_project = {:research_code => rp["research_code"], :team_folder => rp["team_folder"]}
-  create_dropbox_team_folder_from_research_code(research_projects: research_project, debug: false, trace: false)
+  create_dropbox_team_folder_from_research_code(research_projects: research_project, dryrun: DRYRUN, trace: TRACE)
   puts
 end
