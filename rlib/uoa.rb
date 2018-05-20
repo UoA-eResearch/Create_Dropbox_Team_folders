@@ -30,15 +30,15 @@ def update_dropbox_group(group_name:, email_list:, debug: false, trace: false)
     p email_list
   end
   current_members_email = []
-  if (group_id = @dbx_info.group_id(group_name: group_name, silent: !trace) ) == nil
+  if (group_id = @dbx_info.group_id(group_name: group_name, trace: trace) ) == nil
     puts "Creating Group '#{group_name}'"
     if !debug
-      r = @dbx_mng.group_create(group_name: group_name, silent: !trace)
+      r = @dbx_mng.group_create(group_name: group_name, trace: trace)
       group_id = r["group_id"]
     end
   else
     puts "Group '#{group_name}' exists"
-    @dbx_info.group_members_list(group_id: group_id, silent: !trace) do |r|
+    @dbx_info.group_members_list(group_id: group_id, trace: trace) do |r|
       current_members_email << r["profile"]["email"]
     end
   end
@@ -57,12 +57,12 @@ def update_dropbox_group(group_name:, email_list:, debug: false, trace: false)
   
   puts "Adding these users to Group '#{group_name}'"
   p add_these_users
-  @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, silent: !trace) if add_these_users.length > 0 && !debug
+  @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !debug
   puts
   
   puts "Removin these users from Group '#{group_name}'"
   p remove_these_users
-  @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, silent: !trace) if remove_these_users.length > 0  && !debug
+  @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0  && !debug
   puts
   
   return group_id
@@ -95,10 +95,10 @@ def create_dropbox_team_folder_from_research_code(research_projects: , debug: fa
     end
   end
   
-  if (team_folder_id = @dbx_file.team_folder_id(folder_name: team_folder, silent: !trace)) == nil
+  if (team_folder_id = @dbx_file.team_folder_id(folder_name: team_folder, trace: trace)) == nil
     puts "Creating Team Folder #{team_folder}"
     if !debug
-      r = @dbx_file.team_folder_create(folder: team_folder, silent: !trace) #Gives conflict error if the team already exists
+      r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team already exists
       team_folder_id = r["team_folder_id"]
     end
   else
@@ -108,13 +108,13 @@ def create_dropbox_team_folder_from_research_code(research_projects: , debug: fa
   puts "Adding members from LDAP group #{traverse_group}"
   p( member_array_t ) if debug
   if  member_array_t.length > 0 && !debug
-    @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, silent: !trace) #Doesn't matter if the users already exist
+    @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, trace: trace) #Doesn't matter if the users already exist
   end
   puts
 
   group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, debug: debug, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", silent: !trace) if !debug
+  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !debug
 
   group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, debug: debug, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", silent: !trace) if !debug
+  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !debug
 end
