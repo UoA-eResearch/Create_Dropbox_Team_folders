@@ -39,8 +39,8 @@ Example auth token file
 * The LDAP entries of some users can have an email address that will not be recognised by the University IDP, so SSO will not work for these users (Currently, this looks to be just Computer Science users, but there may be others). Users with a non UoA email addresses will get given a student email address upi@aucklanduni.ac.nz, as these work with the IDP, and all staff are allocated these addresses too. Email to these users may end up in a black hole though, as many staff never read email to these addresses.
 
 * Team folder, groups and user records can be manually edited through the Dropbox Admin web page. Doing so may cause conflicts with the automated update of these entities. 
-** The automated group updates will "CORRECT" any manual changes. 
-** New, manually added team users will not necessarily have all their fields set to the same values as the LDAP.
+  * The automated group updates will "CORRECT" any manual changes. 
+  * New, manually added team users will not necessarily have all their fields set to the same values as the LDAP.
 
 * The Dropbox API has returned "429 Too Many Requests" when the Dropbox end is busy (certainly wasn't us sending a lot of calls). Current code backs off for 1, then 2,3 and 4 seconds, retrying each time. It then gives up and moves to the next API call.
 
