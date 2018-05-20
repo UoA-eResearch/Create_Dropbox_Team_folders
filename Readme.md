@@ -1,4 +1,4 @@
-#Populate Dropbox Groups
+# Populate Dropbox Groups
 Using the dropbox API to create University Dropbox team folders and their associated groups for ACL management. Populating the groups from the University LDAP, every 4 hours. 
 
 Team folders have arbitrary names, while the LDAP groups used for ACLs are named for the research project code (in Research Project Database). 
@@ -7,7 +7,7 @@ Currently, this mapping is done in conf/projects.json file. The intent is to mig
 
 We set the Dropbox user record external_id to the UoA UPI. This makes API calls for users simpler.
 
-###conf/project.json
+### conf/project.json
 Example config file
 ```
   [
@@ -17,10 +17,10 @@ Example config file
     { "research_code": "ressci201800027", "team_folder": "Food"}
   ]
 ```
-##Authentication
+## Authentication
 The dropbox API has both user and team calls, and the team calls have four levels of authentication. Each requires a token passed in the REST header. The LDAP has user/password authentication.
 
-###conf/auth.json
+### conf/auth.json
 Example auth token file
 ```
 {
@@ -34,7 +34,7 @@ Example auth token file
 }
 ```
 
-##Issues
+## Issues
 
 *The LDAP entries of some users can have an email address that will not be recognised by the University IDP, so SSO will not work for these users (Currently, this looks to be just Computer Science users, but there may be others). Users with a non UoA email addresses will get given a student email address upi@aucklanduni.ac.nz, as these work with the IDP, and all staff are allocated these addresses too. Email to these users may end up in a black hole though, as many staff never read email to these addresses.
 
