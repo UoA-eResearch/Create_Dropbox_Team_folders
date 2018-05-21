@@ -34,6 +34,13 @@ Example auth token file
 }
 ```
 
+## Dependencies
+```
+  gem install wikk_configuration wikk_json 
+  gem install nokogiri
+  gem install net-ldap
+```
+
 ## Issues
 
 * The LDAP entries of some users can have an email address that will not be recognised by the University IDP, so SSO will not work for these users (Currently, this looks to be just Computer Science users, but there may be others). Users with a non UoA email addresses will get given a student email address upi@aucklanduni.ac.nz, as these work with the IDP, and all staff are allocated these addresses too. Email to these users may end up in a black hole though, as many staff never read email to these addresses.
