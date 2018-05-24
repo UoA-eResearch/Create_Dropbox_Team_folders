@@ -19,21 +19,25 @@ class Dropbox
   # @param query [String] the dropbox query
   # @param query_data [String] Json data sent with the query
   # @param trace [Boolean] If true, then print result of the query to stdout
+  # @param retry_count [Integer] If we get a Dropbox "Too Many Requests", we sleep and retry for a max of 3 additional times
   # @return [Array<Hash>] Dropbox response is a JSON array, which we parse, and return as a Ruby Array.
-  def dropbox_query(query:, query_data: '{}', trace: false)
+  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 1)
     WebBrowser::https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
-      retry_count = 0
       begin
         r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data)
         h = JSON.parse(r)
         puts JSON.pretty_generate(h) if trace
         return h
       rescue WebBrowser::Error => e
-        puts "Error: #{e.class} #{e}"
+        puts "Error (Try #{retry_count}): #{e.class} #{e}"
         if e.web_return_code == 429 #Too Many Requests
-          retry_count += 1
           sleep retry_count
-          return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count) if retry_count <= 4
+          retry_count += 1
+          if retry_count <= 4
+            return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count) 
+          else
+            raise e
+          end
         end
       rescue StandardError=>e
         puts "Error: #{e.class} #{e}"
