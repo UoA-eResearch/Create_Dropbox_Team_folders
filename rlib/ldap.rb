@@ -23,7 +23,9 @@ class UOA_LDAP
     response = OpenStruct.new
     @treebase = "dc=UoA,dc=auckland,dc=ac,dc=nz"
     filter = Net::LDAP::Filter.eq( "objectCategory","user" ) & Net::LDAP::Filter.eq("cn","#{upi}")
-    @ldap.search( :base => @treebase, :filter => filter ) do |entry|
+    attr_list = []
+    attributes.each { |k,v| attr_list << k }
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => attr_list ) do |entry|
       attributes.each do |attribute,value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -40,7 +42,9 @@ class UOA_LDAP
     response = OpenStruct.new
     @treebase = "dc=UoA,dc=auckland,dc=ac,dc=nz"
     filter = Net::LDAP::Filter.eq( "objectCategory","user" ) & Net::LDAP::Filter.eq("mail","#{email}")
-    @ldap.search( :base => @treebase, :filter => filter ) do |entry|
+    attr_list = []
+    attributes.each { |k,v| attr_list << k }
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => attr_list ) do |entry|
       attributes.each do |attribute,value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -56,7 +60,7 @@ class UOA_LDAP
     filter = Net::LDAP::Filter.eq( "objectCategory","group" ) & Net::LDAP::Filter.eq("cn","#{groupname}")
     @treebase = "OU=Groups,dc=UoA,dc=auckland,dc=ac,dc=nz"
 
-    @ldap.search( :base => @treebase, :filter => filter ) do |entry|
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => ['member'] ) do |entry|
       group = entry.dn.split('=')[1].split(',')[0]
       entry.each do |attribute, values|
         if attribute.to_s == 'member'
