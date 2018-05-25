@@ -22,6 +22,8 @@ end
 #update a dropbox team group using the email list of group members, creating the group if it didn't exist
 # @param group_name [String] Identifies the group
 # @param email_list [Array<String>] Email addresses of all the members
+# @param dryrun [Boolean] Print, but Don't actually execute commands that would change Dropbox
+# @param trace [Boolean] Dump raw results from Dropbox API
 # @return [String] Dropbox team group_id
 def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
   puts "update_dropbox_group #{group_name}"
@@ -30,7 +32,7 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
     p email_list
   end
   current_members_email = []
-  if (group_id = @dbx_info.group_id(group_name: group_name, trace: trace) ) == nil
+  if (group_id = get_group_id(group_name: group_name, trace: trace) ) == nil
     puts "Creating Group '#{group_name}'"
     if !dryrun
       r = @dbx_mng.group_create(group_name: group_name, trace: trace)
@@ -71,6 +73,7 @@ end
 # create_dropbox_team_folder_from_research_code, and associated RW and RO ACL groups.
 # @param research_projects [Array<Hash>] Each Array member defines a research project we need to process {:research_code => 'x', :team_folder => 'x'}
 # @param dryrun [Boolean] Optional dryrun flag. If true, outputs what would happen, but doesn't do anything.
+# @param trace [Boolean] Dump raw results from Dropbox API
 def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: false, trace: false)
   research_code = research_projects[:research_code]
   team_folder = research_projects[:team_folder]
@@ -95,7 +98,7 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
     end
   end
   
-  if (team_folder_id = @dbx_file.team_folder_id(folder_name: team_folder, trace: trace)) == nil
+  if (team_folder_id = get_team_folder_id(folder_name: team_folder, trace: trace)) == nil
     puts "Creating Team Folder #{team_folder}"
     if !dryrun
       r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team already exists
@@ -118,3 +121,38 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
   @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !dryrun
 end
+
+#Prefetch all group ids from Dropbox, so we can look up group IDs by group name
+# @param trace [Boolean] Dump raw results from Dropbox API
+def cache_all_group_ids(trace: false)
+  @group_id_map = {}
+  @dbx_info.groups_list(trace: trace) do |gf|
+    @group_id_map[gf["group_name"]] = gf["group_id"]
+  end
+end
+
+#Map group name to group ID, as all dropbox calls are by group ID.
+# @param group_name [String] Dropbox group name
+# @param trace [Boolean] Dump raw results from Dropbox API
+def get_group_id(group_name:, trace: false)
+  cache_all_group_ids(trace: trace) if @group_id_map == nil
+  return @group_id_map[group_name]
+end
+
+#Prefetch all team folder ids from Dropbox, so we can look up team folder IDs by team folder name
+# @param trace [Boolean] Dump raw results from Dropbox API
+def cache_all_team_folder_ids(trace: false)
+  @team_folder_id_map = {}
+  @dbx_file.team_folder_list(trace: trace) do |tf|
+    @team_folder_id_map[tf["name"]] = tf["team_folder_id"]
+  end
+end
+
+#Map team folder name to team folder ID, as all dropbox calls are by team folder ID.
+# @param folder_name [String] Dropbox team folder name
+# @param trace [Boolean] Dump raw results from Dropbox API
+def get_team_folder_id(folder_name:, trace: false)
+  cache_all_team_folder_ids(trace: trace) if @team_folder_id_map == nil
+  return @team_folder_id_map[folder_name]
+end
+
