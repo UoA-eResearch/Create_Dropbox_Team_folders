@@ -4,8 +4,8 @@ require_relative '../rlib/ldap.rb' #json to class with accessor methods
 require_relative '../rlib/dropbox.rb' #json to class with accessor methods
 require_relative '../rlib/uoa.rb' #Localized front ends to dropbox and ldap calls.
 
-DRYRUN=false #Run through actions, printing what would have been done, but don't execute them
-TRACE=false #Dump output of calls to dropbox
+DRYRUN=true #Run through actions, printing what would have been done, but don't execute them
+TRACE=true #Dump output of calls to dropbox
 
 conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 @conf = WIKK::Configuration.new(conf_file)
