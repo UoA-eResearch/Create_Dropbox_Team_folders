@@ -134,10 +134,12 @@ class Dropbox
     r["namespaces"].each do |n|
       yield n
     end
-    while r["has_more"] 
-      r = dropbox_query(query: '2/team/groups/list/continue', query_data: "{\"cursor\":\"#{r["cursor"]}\"}", trace: trace)
-      r["namespaces"].each do |n|
-        yield n
+    while r != nil && r["has_more"] 
+      r = dropbox_query(query: '2/team/namespaces/list/continue', query_data: "{\"cursor\":\"#{r["cursor"]}\"}", trace: trace)
+      if r != nil
+        r["namespaces"].each do |n|
+          yield n
+        end
       end
     end
   end
