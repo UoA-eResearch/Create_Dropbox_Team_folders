@@ -6,9 +6,10 @@ class Dropbox
   
   DROPBOX_API_SERVER = 'api.dropboxapi.com'
   
-  def initialize(token:, as_admin: false)
+  def initialize(token:, admin_id: nil)
     @auth_token = token
-    @as_admin = as_admin
+    @as_admin = admin_id != nil
+    @admin_id = admin_id
   end
   
   def self.connect(token:)
@@ -25,7 +26,7 @@ class Dropbox
   def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 1)
     WebBrowser::https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
-        r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data, extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => 'dbmid:AACl39vllDpNTGMnaM-iCH3NgvF8awrSdys' } : {})
+        r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data, extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {})
         h = JSON.parse(r)
         puts JSON.pretty_generate(h) if trace
         return h

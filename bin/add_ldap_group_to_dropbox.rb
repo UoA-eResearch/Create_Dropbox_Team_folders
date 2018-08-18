@@ -14,7 +14,7 @@ conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 @dbx_mng = Dropbox.new(token: @conf.team_management_token)
 @dbx_info = Dropbox.new(token: @conf.team_info_token)
 #@dbx_person = Dropbox.new(token: @conf.user_token, as_admin: true)
-@dbx_person = Dropbox.new(token: @conf.team_file_token, as_admin: true)
+@dbx_person = Dropbox.new(token: @conf.team_file_token, admin_id: @conf.admin_id)
 
 research_projects = JSON.parse(File.read("#{File.expand_path(File.dirname(__FILE__))}/../conf/projects.json"))
 
