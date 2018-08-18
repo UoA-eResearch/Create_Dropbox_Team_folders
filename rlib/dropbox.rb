@@ -6,8 +6,9 @@ class Dropbox
   
   DROPBOX_API_SERVER = 'api.dropboxapi.com'
   
-  def initialize(token:)
+  def initialize(token:, as_admin: false)
     @auth_token = token
+    @as_admin = as_admin
   end
   
   def self.connect(token:)
@@ -24,20 +25,24 @@ class Dropbox
   def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 1)
     WebBrowser::https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
-        r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data)
+        r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data, extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => 'dbmid:AACl39vllDpNTGMnaM-iCH3NgvF8awrSdys' } : {})
         h = JSON.parse(r)
         puts JSON.pretty_generate(h) if trace
         return h
       rescue WebBrowser::Error => e
-        puts "Error (Try #{retry_count}): #{e.class} #{e}"
         if e.web_return_code == 429 #Too Many Requests
           sleep retry_count
           retry_count += 1
           if retry_count <= 4
+            puts "Retry #{retry_count}: #{e.class} #{e}"
             return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count) 
           else
+            puts "Error (Aborting #{query} Try #{retry_count-1}): #{e.class} #{e}"
             raise e
           end
+        else
+          puts "Error (Aborting #{query}): #{e.class} #{e}"
+          raise e
         end
       rescue StandardError=>e
         puts "Error: #{e.class} #{e}"
@@ -166,6 +171,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   def team_add_members(members_details:, send_welcome: true, trace: false ) #email:, given_name:, surname:, external_id: )
     #Limited to adding 20 members at a time, so create sub arrays of size 20 or less, and process each one.
+    failed_to_add = []
     (0..members_details.length).step(20) do |i|
     	members_details_20 = members_details[i..i+19]
     	member_details_json = []
@@ -175,8 +181,16 @@ class Dropbox
     	  end
     	end
       member_query = "{\"new_members\": [ #{member_details_json.join(',')} ]}"
-      dropbox_query(query: '2/team/members/add', query_data: member_query, trace: trace)
+      if(response = dropbox_query(query: '2/team/members/add', query_data: member_query, trace: trace)) != nil
+        response['complete'].each do |user|
+          if user[".tag"] == 'user_on_another_team' #Got a problem
+            puts "Error: User #{user["user_on_another_team"]} on another Team"
+            failed_to_add << user["user_on_another_team"]
+          end
+        end
+      end
     end
+    return failed_to_add
   end
 
   # Create a dropbox group, and sets the externalID to the groupName (as we can't do a query by groupName, only by group_name and group_external_id)
