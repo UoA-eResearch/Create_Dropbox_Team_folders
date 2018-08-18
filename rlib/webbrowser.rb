@@ -110,7 +110,7 @@ class WebBrowser
   # @param form_values [Hash{String=>Object-with-to_s}] The parameter passed to the web server eg. ?key1=value1&key2=value2...
   # @param authorization [String] If present, add Authorization header, using this string
   # @return [String] The Net::HTTPResponse.body text response from the web server
-  def get_page(query: ,form_values: nil, authorization: nil)
+  def get_page(query: ,form_values: nil, authorization: nil, extra_headers: {})
     $stderr.puts "Debugging On" if @debug
     query += form_values_to_s(form_values, query.index('?') != nil) #Should be using req.set_form_data, but it seems to by stripping the leading / and then the query fails.
     url = URI.parse("#{@use_ssl ? "https" : "http"}://#{@host}/#{query}")
@@ -126,6 +126,9 @@ class WebBrowser
     #header['Content-Type'] = content_type   
     header['Cookie'] = @cookies if @cookies != nil
     header['Authorization'] = authorization if authorization != nil
+    extra_headers.each do |k,v| 
+      header[k] = v
+    end
     req.initialize_http_header( header )
 
     response = @session.request(req)      
@@ -147,7 +150,7 @@ class WebBrowser
       elsif response.code.to_i >= 400 && response.code.to_i < 500
         return response.body
       end
-      raise Error.new(web_return_code: response.code, message: "#{response.code} #{response.message}")
+      raise Error.new(web_return_code: response.code.to_i, message: "#{response.code} #{response.message} #{query} #{data} #{response.body}")
     end
 
     if (response_text = response.response['set-cookie']) != nil
@@ -166,7 +169,7 @@ class WebBrowser
   # @param authorization [String] If present, add Authorization header, using this string
   # @param content_type [String] Posted content type
   # @param data [String] Text to add to body of post to the web server
-  def post_page(query:, authorization: nil, content_type: 'application/x-www-form-urlencoded', data: nil)
+  def post_page(query:, authorization: nil, content_type: 'application/x-www-form-urlencoded', data: nil, extra_headers: {})
     #query += form_values_to_s(form_values) #Should be using req.set_form_data, but it seems to by stripping the leading / and then the query fails.
    #puts query
     url = URI.parse("#{@use_ssl ? "https" : "http"}://#{@host}/#{query}")
@@ -176,6 +179,9 @@ class WebBrowser
     header['Authorization'] = authorization if authorization != nil
     header['Content-Type'] = content_type   
     header['Cookie'] = @cookies if @cookies != nil
+    extra_headers.each do |k,v| 
+      header[k] = v
+    end
     req.initialize_http_header( header )
     #puts req.methods
     #req.set_form_data(form_values, '&') if form_values != nil
@@ -195,7 +201,7 @@ class WebBrowser
             end
           return
         end
-        raise Error.new(web_return_code: response.code, message: "#{response.code} #{response.message}")
+        raise Error.new(web_return_code: response.code, message: "#{response.code} #{response.message} #{query} #{data} #{response.body}")
       end
 
       if (response_text = response.response['set-cookie']) != nil
