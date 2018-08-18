@@ -7,11 +7,12 @@ def fetch_group_and_email_addresses(groupname: )
   #extract email addresses
   email_addresses = []
   member_array.each do |m| 
-    if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
-      email_addresses << m.email
+    email_address = m.email.downcase
+    if email_address =~ /^.+@auckland\.ac\.nz$/ || email_address =~ /^.+@aucklanduni\.ac\.nz$/
+      email_addresses << email_address
     else
       puts "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
-      aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz"
+      aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
       email_addresses << aucklanduni_email
       m.email = aucklanduni_email
     end
@@ -39,7 +40,7 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
       group_id = r["group_id"]
     end
   else
-    puts "Group '#{group_name}' exists"
+    puts "Group '#{group_name}' exists. Using existing group"
     @dbx_info.group_members_list(group_id: group_id, trace: trace) do |r|
       current_members_email << r["profile"]["email"]
     end
@@ -57,15 +58,23 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
     end
   end
   
-  puts "Adding these users to Group '#{group_name}'"
-  p add_these_users
-  @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !dryrun
-  puts
+  begin
+    puts "Adding these users to Group '#{group_name}'"
+    p add_these_users
+    @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !dryrun
+    puts
+  rescue WebBrowser::Error => e
+    #Ignore, as reported previously
+  end
   
-  puts "Removin these users from Group '#{group_name}'"
-  p remove_these_users
-  @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0  && !dryrun
-  puts
+  begin
+    puts "Removing these users from Group '#{group_name}'"
+    p remove_these_users
+    @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0  && !dryrun
+    puts
+  rescue WebBrowser::Error => e
+    #Ignore, as reported previously
+  end
   
   return group_id
 end
@@ -101,8 +110,13 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   if (team_folder_id = get_team_folder_id(folder_name: team_folder, trace: trace)) == nil
     puts "Creating Team Folder #{team_folder}"
     if !dryrun
-      r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team already exists
-      team_folder_id = r["team_folder_id"]
+      begin
+        r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team folder already exists
+        team_folder_id = r["team_folder_id"]
+      rescue WebBrowser::Error => e
+        puts "Creating team folder failed."
+        return
+      end
     end
   else
     puts "Team Folder #{team_folder} exists"
@@ -111,15 +125,29 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   puts "Adding members from LDAP group #{traverse_group}"
   p( member_array_t ) if dryrun || trace
   if  member_array_t.length > 0 && !dryrun
-    @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, trace: trace) #Doesn't matter if the users already exist
+    begin
+      response = @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, trace: trace) #Doesn't matter if the users already exists
+      response.each do |user_email|
+        email_addresses_rw.delete(user_email)
+        email_addresses_ro.delete(user_email)
+        email_addresses_t.delete(user_email)
+      end
+    rescue WebBrowser::Error => e
+    end
   end
   puts
 
-  group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !dryrun
+  begin
+    group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
+    @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !dryrun
+  rescue WebBrowser::Error => e
+  end
 
-  group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
-  @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !dryrun
+  begin
+    group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
+    @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !dryrun
+  rescue WebBrowser::Error => e
+  end
 end
 
 #Prefetch all group ids from Dropbox, so we can look up group IDs by group name
