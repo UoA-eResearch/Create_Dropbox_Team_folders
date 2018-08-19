@@ -24,6 +24,7 @@ The dropbox API has both user and team calls, and the team calls have four level
 Example auth token file
 ```
 {
+  "admin_id":              "dbmid:AACf_Jx1Bi1-mkztJOByBIbhU0-mZMfW2cB",
   "team_info_token":       "b88d621596b7e61337e832f7841066a9b88d621596b7e61337e832f7841066a9",
   "team_audit_token":      "b88d621596b7e61337e832f7841066a9b88d621596b7e61337e832f7841066a9",
   "team_file_token":       "b88d621596b7e61337e832f7841066a9b88d621596b7e61337e832f7841066a9", 
