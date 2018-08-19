@@ -33,6 +33,10 @@ Example auth token file
   "ldap_auth_token":       "b88d621596b7e61337e"
 }
 ```
+Nb. Admin user authentication changed ~August 2018. Now admin functions that would have used the user_token now use the team_file_token and a new header is added to the post, referencing an admin's team_member_id.
+```
+  Dropbox-API-Select-Admin: dbmid:AACf_Jx1Bi1-mkztJOByBIbhU0-mZMfW2cB
+```
 
 ## Dependencies
 ```
