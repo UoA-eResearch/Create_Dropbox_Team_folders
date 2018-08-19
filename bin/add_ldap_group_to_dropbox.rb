@@ -9,12 +9,24 @@ TRACE=false #Dump output of calls to dropbox
 
 conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 @conf = WIKK::Configuration.new(conf_file)
+
 @ldap = UOA_LDAP.new(conf: @conf)
+
+#Team member file access – Team information and auditing, plus the ability to perform any action as any team member
 @dbx_file = Dropbox.new(token: @conf.team_file_token)
+
+#Team member management – Team information, plus the ability to add, edit, and delete team members
 @dbx_mng = Dropbox.new(token: @conf.team_management_token)
-@dbx_info = Dropbox.new(token: @conf.team_info_token)
+
+#Team information – Information about the team and aggregate usage data
+@dbx_info = Dropbox.new(token: @conf.team_info_token) 
+
+#Team member file access – Team information and auditing, plus the ability to perform any action as any team member
+#In this case, impersonating an admin user to perform user based calls. 
+#Replaces using an Admin's user_token, which no longer works. 
 #@dbx_person = Dropbox.new(token: @conf.user_token, as_admin: true)
 @dbx_person = Dropbox.new(token: @conf.team_file_token, admin_id: @conf.admin_id)
+
 
 research_projects = JSON.parse(File.read("#{File.expand_path(File.dirname(__FILE__))}/../conf/projects.json"))
 
