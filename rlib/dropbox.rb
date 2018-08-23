@@ -23,7 +23,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @param retry_count [Integer] If we get a Dropbox "Too Many Requests", we sleep and retry for a max of 3 additional times
   # @return [Array<Hash>] Dropbox response is a JSON array, which we parse, and return as a Ruby Array.
-  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 1)
+  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0)
     WebBrowser::https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
         r = wb.post_page(query: query, authorization: wb.bearer_authorization(token:@auth_token),  content_type: 'application/json', data: query_data, extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {})
@@ -32,8 +32,8 @@ class Dropbox
         return h
       rescue WebBrowser::Error => e
         if e.web_return_code == 429 #Too Many Requests
-          sleep retry_count
           retry_count += 1
+          sleep retry_count
           if retry_count <= 4
             puts "Retry #{retry_count}: #{e.class} #{e}"
             return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count) 
@@ -172,7 +172,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   def team_add_members(members_details:, send_welcome: true, trace: false ) #email:, given_name:, surname:, external_id: )
     #Limited to adding 20 members at a time, so create sub arrays of size 20 or less, and process each one.
-    failed_to_add = []
+    failed_to_add = [] #If we get an error adding one person, add them to this array and carry on.
     (0..members_details.length).step(20) do |i|
     	members_details_20 = members_details[i..i+19]
     	member_details_json = []
