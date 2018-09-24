@@ -1,0 +1,1 @@
+1 8,12,16,20 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cron.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/last_run.log 2>&1
