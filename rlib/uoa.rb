@@ -122,11 +122,30 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
     puts "Team Folder #{team_folder} exists"
   end
 
-  puts "Adding members from LDAP group #{traverse_group}"
-  p( member_array_t ) if dryrun || trace
-  if  member_array_t.length > 0 && !dryrun
+  puts "Checking if we should add members from LDAP group #{traverse_group}"
+  p( member_array_t ) if dryrun || trace  #Debugging 
+  
+  #Filter out the new members by checking against Dropbox's list (which we download at initialization time, or when first check is done)
+  members_to_add = []
+  member_array_t.each do |m|
+    if !member_exists?(member: m)
+      members_to_add << m
+      update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
+    elsif email_address_changed?(member: m)
+      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{e.email}"
+      @dbx_mng.team_members_set_profile(email: m.email, new_email: @team_member_map[m.external_id]["email"], trace: trace)
+      update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
+    end
+  end
+  
+  puts "Adding these members from LDAP group #{traverse_group}"
+  p( members_to_add ) if dryrun || trace  #Debugging 
+
+  if  members_to_add.length > 0 && !dryrun
     begin
-      response = @dbx_mng.team_add_members(members_details: member_array_t, send_welcome: true, trace: trace) #Doesn't matter if the users already exists
+      #Doesn't matter if the users already exists, but we have culled these anyway, as we have to check for changed emails.
+      response = @dbx_mng.team_add_members(members_details: members_to_add, send_welcome: true, trace: trace)
+      #Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
       response.each do |user_email|
         email_addresses_rw.delete(user_email)
         email_addresses_ro.delete(user_email)
@@ -183,4 +202,59 @@ def get_team_folder_id(folder_name:, trace: false)
   cache_all_team_folder_ids(trace: trace) if @team_folder_id_map == nil
   return @team_folder_id_map[folder_name]
 end
+
+#Prefetch all team members from Dropbox, so we can check if a user already exists.
+#This will allow us to spot cases of a user's email address changing, without having to get a 409 error.
+# @param trace [Boolean] Dump raw results from Dropbox API
+def cache_all_team_members(trace: false)
+  @partial_entries = []
+  @team_member_map = {}
+  @dbx_info.team_list(trace: trace) do |tf|
+    upi = tf["profile"]["external_id"]
+    if upi != nil && upi != ''
+      @team_member_map[upi] = tf["profile"] 
+    else
+      @partial_entries << tf["profile"] 
+    end
+  end
+end
+
+def update_team_member_map(member: m)
+  @team_member_map[m.external_id] ||= {} #Create entry, if it doesn't exist
+  
+  #Update parameters we care about.
+  @team_member_map[m.external_id]["email"] = m.email
+  @team_member_map[m.external_id]["external_id"] = m.external_id
+  @team_member_map[m.external_id]["name"]["given_name"] = m.given_name
+  @team_member_map[m.external_id]["name"]["surname"] = m.surname
+end
+
+#Check to see if this members email address from the UOA LDAP is the same as the dropbox one.
+#Relies on having the DropBox external_id set to the UOA Login
+# @param member [OpenStruct] Struct created from LDAP fetch of users attributes
+def email_address_changed?(member:)
+  cache_all_team_members if @team_member_map == nil
+  return member_exists?(member: member) && @team_member_map[member.external_id]["email"] != member.email
+end
+
+#Check to see if this members is already in DropBox.
+#Relies on having the DropBox external_id set to the UOA Login
+# @param member [OpenStruct] Struct created from LDAP fetch of users attributes
+def member_exists?(member:)
+  cache_all_team_members if @team_member_map == nil
+  return @team_member_map[member.external_id] != nil
+end
+
+#set the Dropbox user profile attributes to those in the UoA LDAP
+# @param email [String] Email address used for identity of the user in DropBox.
+def update_team_users_profiles(email:)
+  attr = @ldap.get_ldap_user_attributies_by_email(email: email, attributes: {'sn'=>'surname', 'givenname'=>'given_name', 'mail'=>'email', 'cn'=>'external_id'})
+  if attr != nil
+    @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
+  else
+    puts "No entry for #{email}"
+  end
+end
+
+
 

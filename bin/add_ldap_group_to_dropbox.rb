@@ -27,6 +27,16 @@ conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 #@dbx_person = Dropbox.new(token: @conf.user_token, as_admin: true)
 @dbx_person = Dropbox.new(token: @conf.team_file_token, admin_id: @conf.admin_id)
 
+#Do housekeeping, by ensuring all manually added people have their profile set correctly.
+cache_all_team_members(trace: TRACE)
+@partial_entries.each do |v|
+  puts "Notice: Manually added user #{v["email"]} profile updated from LDAP"
+  update_team_users_profiles(email: v["email"])
+end
+
+#Reload the team members, if we modified any of them.
+cache_all_team_members(trace: TRACE) if @partial_entries.length != 0
+
 
 research_projects = JSON.parse(File.read("#{File.expand_path(File.dirname(__FILE__))}/../conf/projects.json"))
 
