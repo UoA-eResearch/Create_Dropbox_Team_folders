@@ -138,8 +138,8 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
     end
   end
   
-  puts "Adding these members from LDAP group #{traverse_group}"
-  p( members_to_add ) if dryrun || trace  #Debugging 
+  puts "Adding members from LDAP group #{traverse_group}"
+  p( members_to_add )
 
   if  members_to_add.length > 0 && !dryrun
     begin
