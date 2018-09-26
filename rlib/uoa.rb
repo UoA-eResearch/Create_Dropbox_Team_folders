@@ -225,6 +225,7 @@ def update_team_member_map(member:)
   #Update parameters we care about.
   @team_member_map[member.external_id]["email"] = member.email
   @team_member_map[member.external_id]["external_id"] = member.external_id
+  @team_member_map[member.external_id]["name"] ||= {}
   @team_member_map[member.external_id]["name"]["given_name"] = member.given_name
   @team_member_map[member.external_id]["name"]["surname"] = member.surname
 end
