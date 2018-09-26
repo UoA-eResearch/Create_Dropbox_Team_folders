@@ -7,9 +7,9 @@ def fetch_group_and_email_addresses(groupname: )
   #extract email addresses
   email_addresses = []
   member_array.each do |m| 
-    email_address = m.email.downcase
-    if email_address =~ /^.+@auckland\.ac\.nz$/ || email_address =~ /^.+@aucklanduni\.ac\.nz$/
-      email_addresses << email_address
+    m.email = m.email.downcase
+    if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
+      email_addresses << m.email
     else
       puts "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
       aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
@@ -132,8 +132,8 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
       members_to_add << m
       update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
-      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{e.email}"
-      @dbx_mng.team_members_set_profile(email: m.email, new_email: @team_member_map[m.external_id]["email"], trace: trace)
+      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
+      @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace)
       update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
     end
   end
@@ -219,14 +219,14 @@ def cache_all_team_members(trace: false)
   end
 end
 
-def update_team_member_map(member: m)
-  @team_member_map[m.external_id] ||= {} #Create entry, if it doesn't exist
+def update_team_member_map(member:)
+  @team_member_map[member.external_id] ||= {} #Create entry, if it doesn't exist
   
   #Update parameters we care about.
-  @team_member_map[m.external_id]["email"] = m.email
-  @team_member_map[m.external_id]["external_id"] = m.external_id
-  @team_member_map[m.external_id]["name"]["given_name"] = m.given_name
-  @team_member_map[m.external_id]["name"]["surname"] = m.surname
+  @team_member_map[member.external_id]["email"] = member.email
+  @team_member_map[member.external_id]["external_id"] = member.external_id
+  @team_member_map[member.external_id]["name"]["given_name"] = member.given_name
+  @team_member_map[member.external_id]["name"]["surname"] = member.surname
 end
 
 #Check to see if this members email address from the UOA LDAP is the same as the dropbox one.
