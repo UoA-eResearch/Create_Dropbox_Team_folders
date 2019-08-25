@@ -11,7 +11,7 @@ def fetch_group_and_email_addresses(groupname: )
     if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
       email_addresses << m.email
     else
-      puts "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
+      puts "Notice: Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
       aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
       email_addresses << aucklanduni_email
       m.email = aucklanduni_email
@@ -114,7 +114,7 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
         r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team folder already exists
         team_folder_id = r["team_folder_id"]
       rescue WebBrowser::Error => e
-        puts "Creating team folder failed."
+        puts "Error: In create_dropbox_team_folder_from_research_code(): Creating team folder failed."
         return
       end
     end
@@ -249,11 +249,16 @@ end
 #set the Dropbox user profile attributes to those in the UoA LDAP
 # @param email [String] Email address used for identity of the user in DropBox.
 def update_team_users_profiles(email:)
-  attr = @ldap.get_ldap_user_attributies_by_email(email: email, attributes: {'sn'=>'surname', 'givenname'=>'given_name', 'mail'=>'email', 'cn'=>'external_id'})
+  if email =~ /^.+@aucklanduni.ac.nz/   #UoA gmail account, so we know the UPI.
+    attr = @ldap.get_ldap_user_attributies(upi: email.gsub(/@aucklanduni.ac.nz/,''), attributes: {'sn'=>'surname', 'givenname'=>'given_name', 'mail'=>'email', 'cn'=>'external_id'})
+  else #We don't know the UPI, so we need to lookup by email address. 
+      attr = @ldap.get_ldap_user_attributies_by_email(email: email, attributes: {'sn'=>'surname', 'givenname'=>'given_name', 'mail'=>'email', 'cn'=>'external_id'})
+  end
+  
   if attr != nil
     @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
   else
-    puts "No entry for #{email}"
+    puts "Error: In update_team_users_profiles(): No LDAP entry for #{email}"
   end
 end
 
