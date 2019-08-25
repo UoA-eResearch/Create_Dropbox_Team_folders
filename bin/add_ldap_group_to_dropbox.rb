@@ -34,8 +34,12 @@ end
 def update_existing_team_members_email_addresses
   cache_all_team_members(trace: TRACE)
   @partial_entries.each do |v|
-    puts "Notice: Manually added user #{v["email"]} profile updated from LDAP"
-    update_team_users_profiles(email: v["email"])
+    puts "Notice: Manually updating user profile for #{v["email"]} from UoA LDAP"
+    begin
+      update_team_users_profiles(email: v["email"])
+    rescue StandardError => e
+      puts "Error: #{e}"
+    end
   end
 
   #Reload the team members, if we modified any of them.
