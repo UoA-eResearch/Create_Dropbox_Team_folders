@@ -52,6 +52,26 @@ class UOA_LDAP
     end
     return nil
   end
+  
+  # Get a specific LDAP users (specified by email alias) attributes, as specified by the attributes: Hash.
+  # @param email (String) Users University of Auckland email address 
+  # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
+  # @return response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  def get_ldap_user_attributies_by_email_alias(email:, attributes:)
+    response = OpenStruct.new
+    @treebase = "dc=UoA,dc=auckland,dc=ac,dc=nz"
+    filter = Net::LDAP::Filter.eq( "objectCategory","user" ) & Net::LDAP::Filter.eq("proxyaddresses","smtp:#{email}")
+    attr_list = []
+    attributes.each { |k,v| attr_list << k }
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => attr_list ) do |entry|
+      attributes.each do |attribute,value|
+        response[value] = entry[attribute][0].to_s.strip
+      end
+      return response #Only want the first entry
+    end
+    return nil
+  end
+  
 
   # Get an LDAP groups members
   # @param group (String) Users University of Auckland LDAP group name
