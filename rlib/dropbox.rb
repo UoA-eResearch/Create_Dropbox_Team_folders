@@ -194,6 +194,15 @@ class Dropbox
     return failed_to_add
   end
 
+  # Add a second email address to a member account
+  # @param team_member_id [String] Dropbox member account to modify
+  # @param secondary_email_addr [String] second email address
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  def member_add_secondary_email(team_member_id:, secondary_email_addr:, trace: false)
+    query_data = "{\"new_secondary_emails\": [{\"user\": {\".tag\": \"team_member_id\",\"team_member_id\": \"#{team_member_id}\"},\"secondary_emails\": [\"#{secondary_email_addr}\"]}]}"
+    dropbox_query(query: '2/team/members/secondary_emails/add', query_data: query_data, trace: trace)
+  end
+
   # Create a dropbox group, and sets the externalID to the groupName (as we can't do a query by groupName, only by group_name and group_external_id)
   # @param group_name [String] Dropbox group to create
   # @param trace [Boolean] If true, then print result of the query to stdout
