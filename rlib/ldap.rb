@@ -2,9 +2,12 @@ require 'net/ldap'
 require 'ostruct'
 
 class UOA_LDAP
+  LDAP_SERVER = "uoaadsp01.uoa.auckland.ac.nz"
+  # LDAP_SERVER = "ldap.uoa.auckland.ac.nz"  #Disable for the moment, as getting dead LDAP server from VIP address
+  
   # @param conf [Object] must respond to ldap_user and ldap_auth_token
   def initialize(conf:)
-    @ldap = Net::LDAP.new  :host => "uoa.auckland.ac.nz", # your LDAP host name or IP goes here,
+    @ldap = Net::LDAP.new  :host => LDAP_SERVER, # your LDAP host name or IP goes here,
                           :port => "389", # your LDAP host port goes here,
                           #:encryption => :simple_tls,
                           :base => "DC=UoA,DC=auckland,DC=ac,DC=nz", # the base of your AD tree goes here,
@@ -52,7 +55,7 @@ class UOA_LDAP
     end
     return nil
   end
-  
+
   # Get a specific LDAP users (specified by email alias) attributes, as specified by the attributes: Hash.
   # @param email (String) Users University of Auckland email address 
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
@@ -71,7 +74,6 @@ class UOA_LDAP
     end
     return nil
   end
-  
 
   # Get an LDAP groups members
   # @param group (String) Users University of Auckland LDAP group name
@@ -114,4 +116,29 @@ class UOA_LDAP
       puts e
     end
   end
+
+  def memberof?(user: , group:)
+    @treebase = "dc=UoA,dc=auckland,dc=ac,dc=nz"
+    ou = group.gsub(/^.+\.(.+)$/, '\1')
+    filter = "(&(objectCategory=person)(objectclass=user)(memberOf=CN=#{group},OU=#{ou},OU=Groups,DC=UoA,DC=auckland,DC=ac,DC=nz)(cn=#{user}))"
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => ['cn']  ) do |entry|
+      return true
+    end
+    return false
+  end
+
+  def old_memberof?(user: , group:, quiet: false )
+    filter = Net::LDAP::Filter.eq( "objectCategory","user" ) & Net::LDAP::Filter.eq("cn","#{user}*")
+    @ldap.search( :base => @treebase, :filter => filter, :attributes => ['memberOf'] ) do |entry|
+      entry.each do |attribute, values|
+        values.each do |value|
+          cn = value.strip.split(',')[0].split('=')[1]
+          return true if group == cn
+        end
+      end
+    end
+    return false
+  end
+
+
 end
