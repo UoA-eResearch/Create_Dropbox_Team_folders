@@ -14,7 +14,7 @@ conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
 
 cache_all_team_members(trace: TRACE)
 @team_member_map.each do |k,v|
-  puts "#{k} => #{v["email"]}"
+  puts "#{k} => #{v["email"]} #{v["role"]}"
 end
 puts
 puts "Manually added Entries with no External_ID set!"
