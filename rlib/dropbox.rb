@@ -35,18 +35,18 @@ class Dropbox
           retry_count += 1
           sleep retry_count
           if retry_count <= 4
-            puts "Retry #{retry_count}: #{e.class} #{e}"
+            warn "Retry #{retry_count}: #{e.class} #{e}"
             return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count) 
           else
-            puts "Error (Aborting #{query} Try #{retry_count-1}): #{e.class} #{e}"
+            warn "Error (Aborting #{query} Try #{retry_count-1}): #{e.class} #{e}"
             raise e
           end
         else
-          puts "Error (Aborting #{query}): #{e.class} #{e}"
+          warn "Error (Aborting #{query}): #{e.class} #{e}"
           raise e
         end
       rescue StandardError=>e
-        puts "Error: #{e.class} #{e}"
+        warn "Error: #{e.class} #{e}"
       end
     end
   end
@@ -185,13 +185,26 @@ class Dropbox
       if(response = dropbox_query(query: '2/team/members/add', query_data: member_query, trace: trace)) != nil
         response['complete'].each do |user|
           if user[".tag"] == 'user_on_another_team' #Got a problem
-            puts "Error: User #{user["user_on_another_team"]} on another Team"
+            warn "Error: User #{user["user_on_another_team"]} on another Team"
             failed_to_add << user["user_on_another_team"]
           end
         end
       end
     end
     return failed_to_add
+  end
+
+  # Change the users role
+  # @param team_member_id [String] Dropbox member account to modify
+  # @param role [String] One of ['team_admin', 'user_management_admin', 'support_admin', 'member_only']
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  def team_members_set_admin_permissions(team_member_id:, role: 'member_only', trace: false ) 
+    unless ['team_admin', 'user_management_admin', 'support_admin', 'member_only'].include?(role)
+      warn "Error: Unknown role team_members_set_admin_permissions(team_member_id: #{team_member_id}, role: #{role})"
+      return
+    end
+    query_data = "{\"user\": { \".tag\": \"team_member_id\", \"team_member_id\": \"#{team_member_id}\" }, \"new_role\": \"#{role}\"}"
+    dropbox_query(query: '2/team/members/set_admin_permissions', query_data: query_data, trace: trace)
   end
 
   # Add a second email address to a member account
