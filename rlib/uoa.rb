@@ -8,10 +8,12 @@ def fetch_group_and_email_addresses(groupname: )
   email_addresses = []
   member_array.each do |m| 
     m.email = m.email.downcase
+    m.email = @manual_users[m.external_id].email unless @manual_users[m.external_id].nil? # Override email, if in exceptions
+    
     if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
       email_addresses << m.email
     else
-      puts "Notice: Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
+      puts "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
       aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
       email_addresses << aucklanduni_email
       m.email = aucklanduni_email
@@ -125,37 +127,9 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   puts "Checking if we should add members from LDAP group #{traverse_group}"
   p( member_array_t ) if dryrun || trace  #Debugging 
   
-  #Filter out the new members by checking against Dropbox's list (which we download at initialization time, or when first check is done)
-  members_to_add = []
-  member_array_t.each do |m|
-    if !member_exists?(member: m)
-      members_to_add << m
-      update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
-    elsif email_address_changed?(member: m)
-      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
-      @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace)
-      update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
-    end
-  end
-  
-  puts "Adding members from LDAP group #{traverse_group}"
-  p( members_to_add )
-
-  if  members_to_add.length > 0 && !dryrun
-    begin
-      #Doesn't matter if the users already exists, but we have culled these anyway, as we have to check for changed emails.
-      response = @dbx_mng.team_add_members(members_details: members_to_add, send_welcome: true, trace: trace)
-      #Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
-      response.each do |user_email|
-        email_addresses_rw.delete(user_email)
-        email_addresses_ro.delete(user_email)
-        email_addresses_t.delete(user_email)
-      end
-    rescue WebBrowser::Error => e
-    end
-  end
+  add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
   puts
-
+  
   begin
     group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
     @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "editor", trace: trace) if !dryrun
@@ -166,6 +140,44 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
     group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
     @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: "viewer", trace: trace) if !dryrun
   rescue WebBrowser::Error => e
+  end
+end
+
+# add_missing_members check with dropbox, to see if the members exist
+# If not, it adds the missing members to dropbox.
+# For existing users, it validates the dropbox email address is correct, and changes it if necessary
+# The users role is set the to 
+def add_missing_members(members_arr:, dryrun: false, trace: false)
+  members_to_add = []
+  
+  #Look to see if the user is already a member, and if they are, check their email address is still valid.
+  member_array_t.each do |m|
+    if !member_exists?(member: m)
+      members_to_add << m
+      update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
+    elsif email_address_changed?(member: m)
+      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{new_email}"
+      @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace)
+      update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
+    end
+  end
+
+  puts "Adding members"
+  p( members_to_add )
+
+  if  members_to_add.length > 0 && !dryrun
+    begin
+      #Doesn't matter if the users already exists, but we have culled these anyway, as we have to check for changed emails.
+      response = @dbx_mng.team_add_members(members_details: members_to_add, send_welcome: true, trace: trace)
+      
+      #Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
+      response.each do |user_email|
+        email_addresses_rw.delete(user_email)
+        email_addresses_ro.delete(user_email)
+        email_addresses_t.delete(user_email)
+      end
+    rescue WebBrowser::Error => e
+    end
   end
 end
 
@@ -212,8 +224,10 @@ def cache_all_team_members(trace: false)
   @dbx_info.team_list(trace: trace) do |tf|
     upi = tf["profile"]["external_id"]
     if upi != nil && upi != ''
-      @team_member_map[upi] = tf["profile"] 
+      tf["profile"]['role'] = tf["role"][".tag"] # Shift the role, into the profile
+      @team_member_map[upi] = tf["profile"]
     else
+      tf["profile"]['role'] = tf["role"][".tag"] # Shift the role, into the profile
       @partial_entries << tf["profile"] 
     end
   end
@@ -256,11 +270,9 @@ def update_team_users_profiles(email:)
   end
   
   if attr != nil
+    attr.email = @manual_users[attr.external_id].email unless @manual_users[attr.external_id].nil? # Override email, if in exceptions
     @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
   else
-    puts "Error: In update_team_users_profiles(): No LDAP entry for #{email}"
+    warn "Error: In update_team_users_profiles(): No LDAP entry for #{email}"
   end
 end
-
-
-
