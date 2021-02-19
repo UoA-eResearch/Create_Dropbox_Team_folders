@@ -165,9 +165,13 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       members_to_add << m
       update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
-      puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
-      @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace) unless dryrun
-      update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
+      if @team_member_email_map[m.email]
+        puts "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can change the email of '#{@team_member_map[m.external_id]["email"]}'"
+      else
+        puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
+        @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace) unless dryrun
+        update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
+      end
     end
   end
 
@@ -228,14 +232,17 @@ end
 def cache_all_team_members(trace: false)
   @partial_entries = []
   @team_member_map = {}
+  @team_member_email_map = {} #Shouldn't need this, but manual entries through the web interface can cause conflicts.
   @dbx_info.team_list(trace: trace) do |tf|
     upi = tf["profile"]["external_id"]
     if upi != nil && upi != ''
+      @team_member_email_map[tf["profile"]['email']] = upi
       tf["profile"]['role'] = tf["role"][".tag"] # Shift the role, into the profile
       @team_member_map[upi] = tf["profile"]
-    else
+    else # These are problematic, as they can conflict with automatically added ones.
       tf["profile"]['role'] = tf["role"][".tag"] # Shift the role, into the profile
       @partial_entries << tf["profile"] 
+      @team_member_email_map[tf["profile"]['email']] = '' # Unknown UPI, or more likely, a student and staff email conflict.
     end
   end
 end
@@ -249,6 +256,7 @@ def update_team_member_map(member:)
   @team_member_map[member.external_id]["name"] ||= {}
   @team_member_map[member.external_id]["name"]["given_name"] = member.given_name
   @team_member_map[member.external_id]["name"]["surname"] = member.surname
+  @team_member_email_map[member.email] = member.external_id # Reverse lookup, by email address.
 end
 
 #Check to see if this members email address from the UOA LDAP is the same as the dropbox one.
