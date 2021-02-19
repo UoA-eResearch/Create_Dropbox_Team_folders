@@ -88,6 +88,8 @@ end
 def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: false, trace: false)
   research_code = research_projects[:research_code]
   team_folder = research_projects[:team_folder]
+  
+  ['rw','ro','t'].each { |suffix| @research_groups["#{research_code}_#{suffix}.eresearch"] = true } #record the research groups
   rw_group = research_code + '_rw' + '.eresearch'
   ro_group = research_code + '_ro' + '.eresearch'
   traverse_group = research_code + '_t' + '.eresearch'
@@ -161,6 +163,8 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
   
   #Look to see if the user is already a member, and if they are, check their email address is still valid.
   members_arr.each do |m|
+    @research_project_users[m.external_id] = true  # record every user we encounter
+    
     if !member_exists?(member: m)
       members_to_add << m
       update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.

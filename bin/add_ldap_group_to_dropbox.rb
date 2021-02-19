@@ -56,7 +56,7 @@ end
 # Creates and populates or updates existing dropbox rw and ro groups for each research project
 # Creates team folders, if they are missing
 # Sets team folder ACLs using rw and ro groups just created
-def process_each_research_project_using_dropbox
+def process_each_research_project_using_dropbox  
   research_projects = JSON.parse(File.read("#{__dir__}/../conf/projects.json"))
 
   research_projects.each do |rp|
@@ -71,7 +71,7 @@ def process_each_research_project_using_dropbox
 end
 
 def existing_research_group?(groupname:)
-  return false
+  return @research_groups[groupname].nil?
 end
 
 def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
@@ -114,8 +114,6 @@ end
 # * manual assignment of users to groups (non-research groups)
 # * overriding the email address (Necessary, where there is an IDP email field mismatch with the AD mail field)
 def init_exceptions
-  @manual_users = {}     # Users we in the exceptions.json file (still required to have a UoA account to use the UoA IDP)
-  @manual_groups = {}    # Groups we are creating in dropbox. These shouldn't be a research projects group in the AD
   @manual_groups['user_added_manually'] = [] # Create empty array for this default group, we add all exceptions too. This has no team folder.
   
   # e.g.   "rbur004": { "email": "", "role": "Team admin", "group": ["UoA Admins"], "note": "CeR Rob Burrowes", "expires": "9999-12-31"},
@@ -146,8 +144,17 @@ def init_exceptions
   end
 end
 
-init_connections
-init_exceptions
+def init
+  @manual_users = {}     # Users we in the exceptions.json file (still required to have a UoA account to use the UoA IDP)
+  @manual_groups = {}    # Groups we are creating in dropbox. These shouldn't be a research projects group in the AD
+  @research_project_users = {}  # We are going to collect the research project users {using a hash for easy lookup}
+  @research_groups = {}         # We are going to collect all research group names (using a hash for easy lookup)
+
+  init_connections
+  init_exceptions
+end
+
+init
 update_existing_team_members_profile
 process_each_research_project_using_dropbox
 process_manual_groups
