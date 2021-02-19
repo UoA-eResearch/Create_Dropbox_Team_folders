@@ -129,10 +129,10 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   puts "Checking if we should add members from LDAP group #{traverse_group}"
   p( member_array_t ) if dryrun || trace  #Debugging 
   
-  failed_to_add = add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
+  add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
   puts
   
-  failed_to_add.each do |email|
+  @failed_to_add.each do |email|
     [email_addresses_rw, email_addresses_ro, email_addresses_t].each do |email_addresses|
       email_addresses.delete(email)
     end
@@ -159,7 +159,6 @@ end
 # @return [Array] list of email addresses for users that we failed to add as members.
 def add_missing_members(members_arr:, dryrun: false, trace: false)
   members_to_add = []
-  failed_to_add = []
   
   #Look to see if the user is already a member, and if they are, check their email address is still valid.
   members_arr.each do |m|
@@ -188,12 +187,14 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       response = @dbx_mng.team_add_members(members_details: members_to_add, send_welcome: true, trace: trace)
       
       #Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
-      response.each { |user_email| failed_to_add << user_email }
+      response.each do |user_email| 
+        @failed_to_add << user_email
+        @research_project_users[m.external_id] = nil #User never made it.
+      end
     rescue WebBrowser::Error => e
     end
   end
   
-  return failed_to_add
 end
 
 #Prefetch all group ids from Dropbox, so we can look up group IDs by group name

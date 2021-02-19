@@ -78,7 +78,7 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
   return if @manual_users.length == 0
   
   # Add in users from the exceptions file, if they don't already exist in dropbox.
-  failed_to_add = add_missing_members(members_arr: @manual_users.values, dryrun: dryrun, trace: trace)
+  add_missing_members(members_arr: @manual_users.values, dryrun: dryrun, trace: trace)
   
   # Add users to the dropbox groups, as per exceptions.json 
   @manual_groups.each do |groupname, members|
@@ -86,7 +86,7 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
     begin
       email_address_list = []  # create a blank email list for this group
       members.each { |m| email_address_list << m.email } # add users emails to the group
-      failed_to_add.each { |email| email_address_list.delete(email) }
+      @failed_to_add.each { |email| email_address_list.delete(email) }
       # Do a diff, and add or remove users from the dropbox group.
       update_dropbox_group(group_name: groupname, email_list: email_address_list, dryrun: dryrun, trace: trace)
     rescue WebBrowser::Error => e
@@ -149,6 +149,7 @@ def init
   @manual_groups = {}    # Groups we are creating in dropbox. These shouldn't be a research projects group in the AD
   @research_project_users = {}  # We are going to collect the research project users {using a hash for easy lookup}
   @research_groups = {}         # We are going to collect all research group names (using a hash for easy lookup)
+  @failed_to_add = []      # Collect any users we couldn't add to the Team, as we need to ensure we don't try to add them to any group.
 
   init_connections
   init_exceptions
