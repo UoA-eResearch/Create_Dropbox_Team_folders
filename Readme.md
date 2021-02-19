@@ -17,6 +17,22 @@ Example config file
     { "research_code": "ressci201800027", "team_folder": "Food"}
   ]
 ```
+### conf/exceptions.json
+Dropbox account exceptions for manually added accounts, or setting or overriding values
+```
+{
+  "comment": [  "role team_admin            User is an administrator of the team - has all permissions. Nb. Can see Users files",
+                "role user_management_admin User can do most user provisioning, de-provisioning and management.",
+                "role support_admin         User can do a limited set of common support tasks for existing users.",
+                "role member_only           User is not an admin of the team.",
+                "email should be null, unless overriding the AD email entry with an @aucklanduni.ac.nz address. This needs to match the UoA IDP email field.",
+                "expires ensures the user entry will be removed, and not forgotten",
+                "group: [] are non-research groups to add this user too. Can be an empty array",
+                "note: is to explain why this entry exist"
+             ],
+  "fdag999": { "email": null, "role": "team_admin",            "group": ["UoA Admins"], "note": "Admin Frederick Dagg", "expires": "9999-12-31"}
+}
+```
 ## Authentication
 The dropbox API has both user and team calls, and the team calls have four levels of authentication. Each requires a token passed in the REST header. The LDAP has user/password authentication.
 
