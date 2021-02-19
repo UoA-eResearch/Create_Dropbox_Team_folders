@@ -169,7 +169,7 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
       if @team_member_email_map[m.email]
-        puts "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can change the email of '#{@team_member_map[m.external_id]["email"]}'"
+        puts "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]["email"]}'"
       else
         puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
         @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace) unless dryrun
