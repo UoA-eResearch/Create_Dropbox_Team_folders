@@ -189,12 +189,11 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       #Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
       response.each do |user_email| 
         @failed_to_add << user_email
-        @research_project_users[m.external_id] = nil #User never made it.
+        #@research_project_users[m.external_id] = nil #User never made it.
       end
     rescue WebBrowser::Error => e
     end
   end
-  
 end
 
 #Prefetch all group ids from Dropbox, so we can look up group IDs by group name
