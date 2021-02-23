@@ -6,7 +6,7 @@ require_relative '../rlib/uoa.rb' #Localized front ends to dropbox and ldap call
 DRYRUN=false #Run through actions, printing what would have been done, but don't execute them
 TRACE=false #Dump output of calls to dropbox
 
-conf_file = "#{File.expand_path(File.dirname(__FILE__))}/../conf/auth.json"
+conf_file = "#{__dir__}/../conf/auth.json"
 @conf = WIKK::Configuration.new(conf_file)
 
 #Team information – Information about the team and aggregate usage data
