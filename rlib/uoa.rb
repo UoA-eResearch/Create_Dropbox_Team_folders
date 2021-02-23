@@ -2,8 +2,13 @@
 # Nb. some email addresses not in @auckland or @aucklanduni, so generate an upi@aucklanduni address for them
 # @param groupname [String] LDAP group name
 # @return [Array<Hash>,Array<String>] Two arrays returned. First is individual's details, Second is just their email address
-def fetch_group_and_email_addresses(groupname: )
+def fetch_group_and_email_addresses(groupname:, second_go: false )
   member_array = @ldap.get_ldap_group_members(groupname: groupname)
+  if member_array.nil?
+    warn "no ldap result for #{groupname}"
+    return fetch_group_and_email_addresses(groupname: groupname, second_go: true ) unless second_go
+    return nil,nil
+  end
   #extract email addresses
   email_addresses = []
   member_array.each do |m| 
@@ -13,7 +18,7 @@ def fetch_group_and_email_addresses(groupname: )
     if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
       email_addresses << m.email
     else
-      puts "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
+      warn "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
       aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
       email_addresses << aucklanduni_email
       m.email = aucklanduni_email
@@ -42,7 +47,7 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
       group_id = r["group_id"]
     end
   else
-    puts "Group '#{group_name}' exists. Using existing group"
+    warn "Group '#{group_name}' exists. Using existing group"
     @dbx_info.group_members_list(group_id: group_id, trace: trace) do |r|
       current_members_email << r["profile"]["email"]
     end
@@ -100,6 +105,8 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
   member_array_rw, email_addresses_rw = fetch_group_and_email_addresses(groupname: rw_group)
   member_array_ro, email_addresses_ro = fetch_group_and_email_addresses(groupname: ro_group)
 
+  return if member_array_rw.nil? || member_array_ro.nil? #something went wrong with the LDAP lookup, so don't proceed.
+  
   if member_array_t.length == 0 && (member_array_rw.length != 0 || member_array_ro.length != 0)
     member_array_t = member_array_rw
     email_addresses_t = email_addresses_rw
@@ -118,7 +125,7 @@ def create_dropbox_team_folder_from_research_code(research_projects: , dryrun: f
         r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) #Gives conflict error if the team folder already exists
         team_folder_id = r["team_folder_id"]
       rescue WebBrowser::Error => e
-        puts "Error: In create_dropbox_team_folder_from_research_code(): Creating team folder failed."
+        warn "Error: In create_dropbox_team_folder_from_research_code(): Creating team folder failed."
         return
       end
     end
@@ -169,9 +176,9 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       update_team_member_map(member: m) #Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
       if @team_member_email_map[m.email]
-        puts "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]["email"]}'"
+        warn "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]["email"]}'"
       else
-        puts "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
+        warn "WARNING: Email address changed from #{@team_member_map[m.external_id]["email"]} to #{m.email}"
         @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]["email"],  new_email: m.email, trace: trace) unless dryrun
         update_team_member_map(member: m) #updates the entry in the cached copy of team members, so we don't try and change it again.
       end
