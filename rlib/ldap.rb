@@ -111,7 +111,6 @@ class UOA_LDAP
         end
       end
       return group if !block_given?
-
     rescue Exception => e
       puts e
     end
