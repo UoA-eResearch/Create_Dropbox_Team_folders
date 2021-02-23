@@ -5,7 +5,7 @@
 def fetch_group_and_email_addresses(groupname:, second_go: false )
   member_array = @ldap.get_ldap_group_members(groupname: groupname)
   if member_array.nil?
-    warn "no ldap result for #{groupname}"
+    warn "ERROR: no LDAP result for #{groupname}"
     return fetch_group_and_email_addresses(groupname: groupname, second_go: true ) unless second_go
     return nil,nil
   end
