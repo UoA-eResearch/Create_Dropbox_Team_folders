@@ -1,18 +1,18 @@
 #!/home/figshare/ruby/bin/ruby
 require 'wikk_configuration'
 require_relative '../rlib/dropbox.rb'
-require_relative '../rlib/uoa.rb' #Localized front ends to dropbox and ldap calls.
+require_relative '../rlib/uoa.rb' # Localized front ends to dropbox and ldap calls.
 require_relative '../rlib/ldap.rb'
 
-TRACE=false #Dump output of calls to dropbox
-DRYRUN=false # Run through actions, printing what would have been done, but don't execute them
+TRACE = false # Dump output of calls to dropbox
+DRYRUN = false # Run through actions, printing what would have been done, but don't execute them
 
 def init
   conf_file = "#{__dir__}/../conf/auth.json"
   @conf = WIKK::Configuration.new(conf_file)
-  
-  #Team information – Information about the team and aggregate usage data
-  @dbx_info = Dropbox.new(token: @conf.team_info_token) 
+
+  # Team information – Information about the team and aggregate usage data
+  @dbx_info = Dropbox.new(token: @conf.team_info_token)
   @ldap = UOA_LDAP.new(conf: @conf)
 end
 
@@ -24,48 +24,47 @@ def record_research_groups_and_users
 
   research_projects = JSON.parse(File.read("#{__dir__}/../conf/projects.json"))
   research_projects.each do |rp|
-    ['rw','ro'].each do |suffix|
+    %w[rw ro].each do |suffix|
       group_name = "#{rp['research_code']}_#{suffix}.eresearch"
-      @research_groups[group_name] = true  #record the research groups
-      member_array, email_addresses = fetch_group_and_email_addresses(groupname: group_name)
-      unless member_array.nil?
-        member_array.each do |m|
-          @research_project_users[m.external_id] = true  # record every user we encounter
-        end
+      @research_groups[group_name] = true  # record the research groups
+      member_array, _email_addresses = fetch_group_and_email_addresses(groupname: group_name)
+      next if member_array.nil?
+
+      member_array.each do |m|
+        @research_project_users[m.external_id] = true  # record every user we encounter
       end
     end
   end
-  
+
   manual_entries = JSON.parse(File.read("#{__dir__}/../conf/exceptions.json"))
-  manual_entries.each do |upi, r|
+  manual_entries.each do |upi, _r|
     @research_project_users[upi] = true
   end
-  
 end
 
 init
 cache_all_team_members(trace: TRACE)
 record_research_groups_and_users
-output = [] #lines of output, so we can sort them.
+output = [] # lines of output, so we can sort them.
 
-@team_member_map.each do |k,v|
-  if @ldap.memberof?(user: k, group: 'nectar_access.eresearch') 
+@team_member_map.each do |k, v|
+  if @ldap.memberof?(user: k, group: 'nectar_access.eresearch')
     if @research_project_users[k].nil?
-      output << "UoA No Group   #{k} => #{v["email"]} #{v['name']['display_name']}"
+      output << "Staff/PhD     No Proj   #{k} => #{v['email']} #{v['name']['display_name']}"
     end
   else
-    if @research_project_users[k].nil?
-      output << "Gone No Group  #{k} => #{v["email"]}} #{v['name']['display_name']}"
-    else 
-      output << "Gone In Group  #{k} => #{v["email"]} #{v['name']['display_name']}" 
-    end 
+    output << if @research_project_users[k].nil?
+                "Not Staff/PhD No Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
+              else
+                "Not Staff/PhD In Proj  #{k} => #{v['email']} #{v['name']['display_name']}"
+              end
   end
 end
 output.sort.each { |l| puts l }
 puts
 
-puts "Manually added Entries with no External_ID set!"
+puts 'Manually added Entries with no External_ID set!'
 @partial_entries.each do |v|
-  p v["email"]
+  p v['email']
 end
 puts
