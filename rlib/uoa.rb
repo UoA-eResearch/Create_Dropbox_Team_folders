@@ -49,8 +49,8 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
     end
   else
     warn "Group '#{group_name}' exists. Using existing group"
-    @dbx_info.group_members_list(group_id: group_id, trace: trace) do |r|
-      current_members_email << r['profile']['email']
+    @dbx_info.group_members_list(group_id: group_id, trace: trace) do |resp|
+      current_members_email << resp['profile']['email']
     end
   end
   add_these_users = []
