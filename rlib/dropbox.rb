@@ -26,7 +26,12 @@ class Dropbox
   def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0)
     WIKK::WebBrowser.https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
-        r = wb.post_page(query: query, authorization: wb.bearer_authorization(token: @auth_token), content_type: 'application/json', data: query_data, extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {})
+        r = wb.post_page( query: query, 
+                          authorization: wb.bearer_authorization(token: @auth_token), 
+                          content_type: 'application/json', 
+                          data: query_data, 
+                          extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {}
+                        )
         h = JSON.parse(r)
         puts JSON.pretty_generate(h) if trace
         return h
@@ -178,7 +183,7 @@ class Dropbox
   # @param role [String] One of ['team_admin', 'user_management_admin', 'support_admin', 'member_only']
   # @param trace [Boolean] If true, then print result of the query to stdout
   def team_members_set_admin_permissions(team_member_id:, role: 'member_only', trace: false )
-    unless %w[team_admin user_management_admin support_admin member_only].include?(role)
+    unless ['team_admin', 'user_management_admin', 'support_admin', 'member_only'].include?(role)
       warn "Error: Unknown role team_members_set_admin_permissions(team_member_id: #{team_member_id}, role: #{role})"
       return
     end
@@ -186,7 +191,8 @@ class Dropbox
     dropbox_query(query: '2/team/members/set_admin_permissions', query_data: query_data, trace: trace)
   end
 
-  # Add a second email address to a member account
+  # Add a second email address to a member account.
+  # Nb. This can't be their student email, if they are staff. Dropbox sees this as adding two different UoA users.
   # @param team_member_id [String] Dropbox member account to modify
   # @param secondary_email_addr [String] second email address
   # @param trace [Boolean] If true, then print result of the query to stdout

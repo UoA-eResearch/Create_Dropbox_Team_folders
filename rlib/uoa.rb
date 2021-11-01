@@ -95,7 +95,7 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   research_code = research_projects[:research_code]
   team_folder = research_projects[:team_folder]
 
-  %w[rw ro t].each { |suffix| @research_groups["#{research_code}_#{suffix}.eresearch"] = true } # record the research groups
+  ['rw', 'ro', 't'].each { |suffix| @research_groups["#{research_code}_#{suffix}.eresearch"] = true } # record the research groups
   rw_group = research_code + '_rw' + '.eresearch'
   ro_group = research_code + '_ro' + '.eresearch'
   traverse_group = research_code + '_t' + '.eresearch'

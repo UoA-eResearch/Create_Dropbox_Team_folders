@@ -1,4 +1,4 @@
-#!/home/figshare/ruby/bin/ruby
+#!/usr/local/bin/ruby
 require 'wikk_configuration'
 require_relative '../rlib/dropbox.rb'
 require_relative '../rlib/uoa.rb' # Localized front ends to dropbox and ldap calls.
@@ -24,7 +24,7 @@ def record_research_groups_and_users
 
   research_projects = JSON.parse(File.read("#{__dir__}/../conf/projects.json"))
   research_projects.each do |rp|
-    %w[rw ro].each do |suffix|
+    ['rw', 'ro'].each do |suffix|
       group_name = "#{rp['research_code']}_#{suffix}.eresearch"
       @research_groups[group_name] = true  # record the research groups
       member_array, _email_addresses = fetch_group_and_email_addresses(groupname: group_name)
