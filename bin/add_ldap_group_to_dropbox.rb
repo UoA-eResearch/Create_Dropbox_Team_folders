@@ -64,7 +64,7 @@ def process_each_research_project_using_dropbox
       research_project = { research_code: rp['research_code'], team_folder: rp['team_folder'] }
       create_dropbox_team_folder_from_research_code(research_projects: research_project, dryrun: DRYRUN, trace: TRACE)
       puts
-    rescue WebBrowser::Error => _e
+    rescue WIKK::WebBrowser::Error => _e
       # Ignore these and try the next group.
     end
   end
@@ -90,7 +90,7 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
       @failed_to_add.each { |email| email_address_list.delete(email) }
       # Do a diff, and add or remove users from the dropbox group.
       update_dropbox_group(group_name: groupname, email_list: email_address_list, dryrun: dryrun, trace: trace)
-    rescue WebBrowser::Error => _e
+    rescue WIKK::WebBrowser::Error => _e
       # Ignore web errors, and continue.
     end
   end
