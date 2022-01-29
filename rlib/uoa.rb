@@ -71,7 +71,7 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
     p add_these_users
     @dbx_mng.group_add_members(group_id: group_id, emails: add_these_users, trace: trace) if add_these_users.length > 0 && !dryrun
     puts
-  rescue WebBrowser::Error => _e
+  rescue WIKK::WebBrowser::Error => _e
     # Ignore, as reported previously
   end
 
@@ -80,7 +80,7 @@ def update_dropbox_group(group_name:, email_list:, dryrun: false, trace: false)
     p remove_these_users
     @dbx_mng.group_remove_members(group_id: group_id, emails: remove_these_users, trace: trace) if remove_these_users.length > 0 && !dryrun
     puts
-  rescue WebBrowser::Error => _e
+  rescue WIKK::WebBrowser::Error => _e
     # Ignore, as reported previously
   end
 
@@ -95,7 +95,7 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   research_code = research_projects[:research_code]
   team_folder = research_projects[:team_folder]
 
-  ['rw', 'ro', 't'].each { |suffix| @research_groups["#{research_code}_#{suffix}.eresearch"] = true } # record the research groups
+  [ 'rw', 'ro', 't' ].each { |suffix| @research_groups["#{research_code}_#{suffix}.eresearch"] = true } # record the research groups
   rw_group = research_code + '_rw' + '.eresearch'
   ro_group = research_code + '_ro' + '.eresearch'
   traverse_group = research_code + '_t' + '.eresearch'
@@ -125,7 +125,7 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
       begin
         r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) # Gives conflict error if the team folder already exists
         team_folder_id = r['team_folder_id']
-      rescue WebBrowser::Error => _e
+      rescue WIKK::WebBrowser::Error => _e
         warn 'Error: In create_dropbox_team_folder_from_research_code(): Creating team folder failed.'
         return
       end
@@ -149,14 +149,14 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   begin
     group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
     @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'editor', trace: trace) unless dryrun
-  rescue WebBrowser::Error => _e
+  rescue WIKK::WebBrowser::Error => _e
     # Ignore web errors
   end
 
   begin
     group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
     @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'viewer', trace: trace) unless dryrun
-  rescue WebBrowser::Error => _e
+  rescue WIKK::WebBrowser::Error => _e
     # Ignore web errors
   end
 end
@@ -201,7 +201,7 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
         @failed_to_add << user_email
         # @research_project_users[m.external_id] = nil #User never made it.
       end
-    rescue WebBrowser::Error => _e
+    rescue WIKK::WebBrowser::Error => _e
       # Ignore web errors
     end
   end
