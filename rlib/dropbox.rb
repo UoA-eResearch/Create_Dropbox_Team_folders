@@ -26,10 +26,10 @@ class Dropbox
   def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0)
     WIKK::WebBrowser.https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
-        r = wb.post_page( query: query, 
-                          authorization: wb.bearer_authorization(token: @auth_token), 
-                          content_type: 'application/json', 
-                          data: query_data, 
+        r = wb.post_page( query: query,
+                          authorization: wb.bearer_authorization(token: @auth_token),
+                          content_type: 'application/json',
+                          data: query_data,
                           extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {}
                         )
         h = JSON.parse(r)
@@ -38,7 +38,7 @@ class Dropbox
       rescue WIKK::WebBrowser::Error => e
         if e.web_return_code == 429 # Too Many Requests
           retry_count += 1
-          sleep retry_count
+          sleep retry_count * 15
           if retry_count <= 4
             warn "Retry #{retry_count}: #{e.class} #{e}"
             return dropbox_query(query: query, query_data: query_data, trace: trace, retry_count: retry_count)
@@ -183,7 +183,7 @@ class Dropbox
   # @param role [String] One of ['team_admin', 'user_management_admin', 'support_admin', 'member_only']
   # @param trace [Boolean] If true, then print result of the query to stdout
   def team_members_set_admin_permissions(team_member_id:, role: 'member_only', trace: false )
-    unless ['team_admin', 'user_management_admin', 'support_admin', 'member_only'].include?(role)
+    unless [ 'team_admin', 'user_management_admin', 'support_admin', 'member_only' ].include?(role)
       warn "Error: Unknown role team_members_set_admin_permissions(team_member_id: #{team_member_id}, role: #{role})"
       return
     end
