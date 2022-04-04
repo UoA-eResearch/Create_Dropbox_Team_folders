@@ -182,8 +182,12 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
         warn "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]['email']}'"
       else
         warn "WARNING: Email address changed from #{@team_member_map[m.external_id]['email']} to #{m.email}"
-        @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]['email'], new_email: m.email, trace: trace) unless dryrun
-        update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
+        begin
+          @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]['email'], new_email: m.email, trace: trace) unless dryrun
+          update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
+        rescue StandardError => e
+          warn("Error in team_members_set_profile: #{e}")
+        end
       end
     end
   end
