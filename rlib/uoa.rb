@@ -320,7 +320,11 @@ def update_team_users_profiles(email:)
   if attr.nil?
     warn "Error: In update_team_users_profiles(): No LDAP entry for #{email}"
   else
-    attr.email = @manual_users[attr.external_id].email unless @manual_users[attr.external_id].nil? # Override email, if in exceptions
-    @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
+    begin
+      attr.email = @manual_users[attr.external_id].email unless @manual_users[attr.external_id].nil? # Override email, if in exceptions
+      @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
+    rescue WIKK::WebBrowser::Error, StandardError => _e
+      # Ignore, as it has been reported. Caught, so we don't fail due to an error.
+    end
   end
 end
