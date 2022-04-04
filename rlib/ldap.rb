@@ -42,7 +42,7 @@ class UOA_LDAP
   # @param upi (String) Users University of Auckland Login name
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
   # @yield response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
-  def get_ldap_allusers_attributies(upi:, attributes:)
+  def get_ldap_allusers_attributes(upi:, attributes:)
     response = OpenStruct.new
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
