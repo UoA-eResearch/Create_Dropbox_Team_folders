@@ -38,6 +38,25 @@ class UOA_LDAP
     return nil
   end
 
+  # Get all LDAP users (specified by upi:) attributes, as specified by the attributes: Hash.
+  # @param upi (String) Users University of Auckland Login name
+  # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
+  # @yield response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  def get_ldap_allusers_attributies(upi:, attributes:)
+    response = OpenStruct.new
+    @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
+    filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
+    attr_list = []
+    attributes.each { |k, _v| attr_list << k }
+    @ldap.search( base: @treebase, filter: filter, attributes: attr_list ) do |entry|
+      attributes.each do |attribute, value|
+        response[value] = entry[attribute][0].to_s.strip
+      end
+      yield response # Only want the first entry
+    end
+    return nil
+  end
+
   # Get a specific LDAP users (specified by email) attributes, as specified by the attributes: Hash.
   # @param email (String) Users University of Auckland email address
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
