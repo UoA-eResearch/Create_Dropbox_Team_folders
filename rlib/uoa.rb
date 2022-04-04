@@ -137,7 +137,11 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   puts "Checking if we should add members from LDAP group #{traverse_group}"
   p( member_array_t ) if dryrun || trace  # Debugging
 
-  add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
+  begin
+    add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
+  rescue Exception => e
+    puts "Error: Crashed out of add missing members: #{e}"
+  end
   puts
 
   @failed_to_add.each do |email|
@@ -178,15 +182,21 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       members_to_add << m
       update_team_member_map(member: m) # Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
+      if m.email.empty?
+        m.email = "#{m.external_id}@aucklanduni.ac.nz"
+        warn "WARNING: Email address for #{@team_member_map[m.external_id]['email']} is empty? Set to #{m.email}"
+      end
+
       if @team_member_email_map[m.email]
         warn "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]['email']}'"
       else
         warn "WARNING: Email address changed from #{@team_member_map[m.external_id]['email']} to #{m.email}"
         begin
-          @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]['email'], new_email: m.email, trace: trace) unless dryrun
           update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
-        rescue StandardError => e
-          warn("Error in team_members_set_profile: #{e}")
+          @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]['email'], new_email: m.email, trace: trace) unless dryrun
+        rescue WIKK::WebBrowser::Error, StandardError => _e
+          # Ignore, as it has been reported. Caught, so we don't fail due to an error.
+          next
         end
       end
     end
@@ -206,7 +216,7 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
         # @research_project_users[m.external_id] = nil #User never made it.
       end
     rescue WIKK::WebBrowser::Error => _e
-      # Ignore web errors
+      # Ignore web errors. Already logged
     end
   end
 end
@@ -297,6 +307,10 @@ end
 # set the Dropbox user profile attributes to those in the UoA LDAP
 # @param email [String] Email address used for identity of the user in DropBox.
 def update_team_users_profiles(email:)
+  if email.empty?
+    warn('Error: email address is empty?')
+    return
+  end
   attr = if email =~ /^.+@aucklanduni.ac.nz/   # UoA gmail account, so we know the UPI.
            @ldap.get_ldap_user_attributies(upi: email.gsub(/@aucklanduni.ac.nz/, ''), attributes: { 'sn' => 'surname', 'givenname' => 'given_name', 'mail' => 'email', 'cn' => 'external_id' })
          else # We don't know the UPI, so we need to lookup by email address.
