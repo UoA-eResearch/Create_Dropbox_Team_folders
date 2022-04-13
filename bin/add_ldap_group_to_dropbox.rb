@@ -127,13 +127,13 @@ def init_exceptions
 
     manual_email = r['email'].nil? || r['email'] == '' ? nil : r['email'].downcase
     new_user_entry = @ldap.get_ldap_user_attributies(upi: upi, attributes: { 'sn' => 'surname', 'givenname' => 'given_name', 'mail' => 'email', 'cn' => 'external_id' })
-    new_user_entry.role = r['role']
+    new_user_entry['role'] = r['role']
 
     # Manually added users still need to be in the UoA AD to be in the UoA dropbox team.
     if new_user_entry.nil?
       warn "exception.json: #{upi} Need to have a UoA identity (user not found in AD)"
     else
-      new_user_entry.email = manual_email unless manual_email.nil? # Replace LDAP email address, with our version.
+      new_user_entry['email'] = manual_email unless manual_email.nil? # Replace LDAP email address, with our version.
       @manual_users[upi] = new_user_entry
 
       @manual_groups['user_added_manually'] << new_user_entry
