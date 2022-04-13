@@ -1,5 +1,4 @@
 require 'net/ldap'
-require 'ostruct'
 
 # Encapsulate UoA LDAP (AD) calls
 class UOA_LDAP
@@ -22,9 +21,9 @@ class UOA_LDAP
   # Get a specific LDAP users (specified by upi:) attributes, as specified by the attributes: Hash.
   # @param upi (String) Users University of Auckland Login name
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
-  # @return response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  # @return response (Hash) attribute names, as specified by the values in the attributes Hash argument
   def get_ldap_user_attributies(upi:, attributes:)
-    response = OpenStruct.new
+    response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
     attr_list = []
@@ -41,9 +40,9 @@ class UOA_LDAP
   # Get all LDAP users (specified by upi:) attributes, as specified by the attributes: Hash.
   # @param upi (String) Users University of Auckland Login name
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
-  # @yield response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  # @yield response (Hash) attribute names, as specified by the values in the attributes Hash argument
   def get_ldap_allusers_attributes(upi:, attributes:)
-    response = OpenStruct.new
+    response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
     attr_list = []
@@ -60,9 +59,9 @@ class UOA_LDAP
   # Get a specific LDAP users (specified by email) attributes, as specified by the attributes: Hash.
   # @param email (String) Users University of Auckland email address
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
-  # @return response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  # @return response (Hash) attribute names, as specified by the values in the attributes Hash argument
   def get_ldap_user_attributies_by_email(email:, attributes:)
-    response = OpenStruct.new
+    response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('mail', "#{email}")
     attr_list = []
@@ -79,9 +78,9 @@ class UOA_LDAP
   # Get a specific LDAP users (specified by email alias) attributes, as specified by the attributes: Hash.
   # @param email (String) Users University of Auckland email address
   # @param attributes (Hash) Keys are the LDAP attribute name and the corresponding values are the attribute names we want to use.
-  # @return response (OpenStruct) attribute names, as specified by the values in the attributes Hash argument
+  # @return response (Hash) attribute names, as specified by the values in the attributes Hash argument
   def get_ldap_user_attributies_by_email_alias(email:, attributes:)
-    response = OpenStruct.new
+    response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('proxyaddresses', "smtp:#{email}")
     attr_list = []
@@ -118,8 +117,8 @@ class UOA_LDAP
   # Get group members from UoA LDAP service, for a specific group.
   # Targeted at then adding these to a dropbox group of the same name
   # @param group [String] Exact LDAP name of group
-  # @yield [OpenStruct] attributes are the
-  # @return Array of group members, each member being a Struct that responds to: surname, given_name, email, external_id.
+  # @yield [Hash] attributes are the
+  # @return Array of group members, each member being a Hash with 'surname', 'given_name', 'email', 'external_id'.
   def get_ldap_group_members(groupname:)
     begin
       group = []

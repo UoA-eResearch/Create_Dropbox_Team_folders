@@ -13,16 +13,16 @@ def fetch_group_and_email_addresses(groupname:, second_go: false )
   # extract email addresses
   email_addresses = []
   member_array.each do |m|
-    m.email = m.email.downcase
-    m.email = @manual_users[m.external_id].email unless @manual_users[m.external_id].nil? # Override email, if in exceptions
+    m['email'] = m['email'].downcase
+    m['email'] = @manual_users[m['external_id']]['email'] unless @manual_users[m['external_id']].nil? # Override email, if in exceptions
 
-    if m.email =~ /^.+@auckland\.ac\.nz$/ || m.email =~ /^.+@aucklanduni\.ac\.nz$/
-      email_addresses << m.email
+    if m['email'] =~ /^.+@auckland\.ac\.nz$/ || m['email'] =~ /^.+@aucklanduni\.ac\.nz$/
+      email_addresses << m['email']
     else
-      warn "Non-UoA Email Address: #{m.external_id} #{m.email} #{m.surname} #{m.given_name}. Using #{m.external_id}@aucklanduni.ac.nz"
-      aucklanduni_email = "#{m.external_id}@aucklanduni.ac.nz".downcase
+      warn "Non-UoA Email Address: #{m['external_id']} #{m['email']} #{m['surname']} #{m['given_name']}. Using #{m['external_id']}@aucklanduni.ac.nz"
+      aucklanduni_email = "#{m['external_id']}@aucklanduni.ac.nz".downcase
       email_addresses << aucklanduni_email
-      m.email = aucklanduni_email
+      m['email'] = aucklanduni_email
     end
   end
   return member_array, email_addresses
@@ -100,7 +100,7 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   ro_group = research_code + '_ro' + '.eresearch'
   traverse_group = research_code + '_t' + '.eresearch'
 
-  # member_array_t, email_addresses_t = fetch_group_and_email_addresses(groupname: traverse_group) #no always correct, so ignoring.
+  # member_array_t, email_addresses_t = fetch_group_and_email_addresses(groupname: traverse_group) # not always correct, so ignoring.
   member_array_t = []
   email_addresses_t = []
   member_array_rw, email_addresses_rw = fetch_group_and_email_addresses(groupname: rw_group)
@@ -139,7 +139,7 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
 
   begin
     add_missing_members(members_arr: member_array_t, dryrun: dryrun, trace: trace)
-  rescue Exception => e
+  rescue Exception => e # rubocop:disable Lint/RescueException
     puts "Error: Crashed out of add missing members: #{e}"
   end
   puts
@@ -169,35 +169,49 @@ end
 # If not, it adds the missing members to dropbox.
 # For existing users, it validates the dropbox email address is correct, and changes it if necessary
 # The users role is set the to
-# @param members_arr [Array] Each member is an OpenStruct LDAP record, for a user
+# @param members_arr [Array] Each member is a Hash of the LDAP response record, for a user
 # @return [Array] list of email addresses for users that we failed to add as members.
 def add_missing_members(members_arr:, dryrun: false, trace: false)
   members_to_add = []
 
   # Look to see if the user is already a member, and if they are, check their email address is still valid.
   members_arr.each do |m|
-    @research_project_users[m.external_id] = true  # record every user we encounter
+    @research_project_users[m['external_id']] = true  # record every user we encounter
 
     if !member_exists?(member: m)
-      members_to_add << m
+      # If they don't already exist, then remember this record
+      members_to_add << m unless m['bad_email']
       update_team_member_map(member: m) # Adds a placeholder, so we don't add this user again, while processing a later research group.
     elsif email_address_changed?(member: m)
-      if m.email.empty?
-        m.email = "#{m.external_id}@aucklanduni.ac.nz"
-        warn "WARNING: Email address for #{@team_member_map[m.external_id]['email']} is empty? Set to #{m.email}"
+      # They already exist in Dropbox, but the email record is now different
+      if m['email'].empty?
+        # The Uni isn't recording their new email in the AD, so they have most likely left.
+        m['email'] = "#{m['external_id']}@aucklanduni.ac.nz"
+        if @team_member_map[m['external_id']]['email'] == m['email']
+          next # Nothing actually changed.
+        else
+          # Staff email has changed to the student email
+          warn "WARNING: AD Email address for #{@team_member_map[m['external_id']]['email']} was empty? Set to #{m['email']}"
+        end
       end
 
-      if @team_member_email_map[m.email]
-        warn "WARNING Email address conflict. A Dropbox account '#{m.email}' already exists, so we can not change the email of '#{@team_member_map[m.external_id]['email']}'"
-      else
-        warn "WARNING: Email address changed from #{@team_member_map[m.external_id]['email']} to #{m.email}"
+      if @team_member_email_map[m['email']].nil?
+        # We don't have this user, under this email address.
+        warn "WARNING: Email address changed from #{@team_member_map[m['external_id']]['email']} to #{m['email']}"
         begin
+          @dbx_mng.team_members_set_profile(email: @team_member_map[m['external_id']]['email'], new_email: m['email'], trace: trace) unless dryrun
           update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
-          @dbx_mng.team_members_set_profile(email: @team_member_map[m.external_id]['email'], new_email: m.email, trace: trace) unless dryrun
         rescue WIKK::WebBrowser::Error, StandardError => _e
-          # Ignore, as it has been reported. Caught, so we don't fail due to an error.
+          # We couldn't fix this user's email address, so we don't want to continue trying to work with the bad one
+          m['bad_email'] = true # updates the entry in the cached copy of team members, so we don't try and change it again.
+          update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
+          @failed_to_add << m['email'] # This address will get deleted from groups, so we don't try to add them to Dropbox groups.
           next
         end
+      else
+        # A record for this email address exists, but without the exernal_id set, so someone added it in the Web interface.
+        warn "WARNING: Looks like we have a manually added user #{m['email']}"
+        next
       end
     end
   end
@@ -213,7 +227,7 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
       # Response will have those who didn't get added due to an error. We can't add these to a group, so we remove these bad ones.
       response.each do |user_email|
         @failed_to_add << user_email
-        # @research_project_users[m.external_id] = nil #User never made it.
+        # @research_project_users[m['external_id']] = nil #User never made it.
       end
     rescue WIKK::WebBrowser::Error => _e
       # Ignore web errors. Already logged
@@ -272,36 +286,38 @@ def cache_all_team_members(trace: false)
       tf['profile']['role'] = tf['role']['.tag'] # Shift the role, into the profile
       @partial_entries << tf['profile']
       @team_member_email_map[tf['profile']['email']] = '' # Unknown UPI, or more likely, a student and staff email conflict.
+      @team_member_map[member['external_id']]['bad_email'] = false  # Until we prove otherwise
     end
   end
 end
 
 def update_team_member_map(member:)
-  @team_member_map[member.external_id] ||= {} # Create entry, if it doesn't exist
+  @team_member_map[member['external_id']] ||= {} # Create entry, if it doesn't exist
 
   # Update parameters we care about.
-  @team_member_map[member.external_id]['email'] = member.email
-  @team_member_map[member.external_id]['external_id'] = member.external_id
-  @team_member_map[member.external_id]['name'] ||= {}
-  @team_member_map[member.external_id]['name']['given_name'] = member.given_name
-  @team_member_map[member.external_id]['name']['surname'] = member.surname
-  @team_member_email_map[member.email] = member.external_id # Reverse lookup, by email address.
+  @team_member_map[member['external_id']]['email'] = member['email']
+  @team_member_map[member['external_id']]['external_id'] = member['external_id']
+  @team_member_map[member['external_id']]['name'] ||= {}
+  @team_member_map[member['external_id']]['name']['given_name'] = member['given_name']
+  @team_member_map[member['external_id']]['name']['surname'] = member['surname']
+  @team_member_map[member['external_id']]['bad_email'] = member['bad_email']
+  @team_member_email_map[member['email']] = member['external_id'] # Reverse lookup, by email address.
 end
 
 # Check to see if this members email address from the UOA LDAP is the same as the dropbox one.
 # Relies on having the DropBox external_id set to the UOA Login
-# @param member [OpenStruct] Struct created from LDAP fetch of users attributes
+# @param member [Hash] Struct created from LDAP fetch of users attributes
 def email_address_changed?(member:)
   cache_all_team_members if @team_member_map.nil?
-  return member_exists?(member: member) && @team_member_map[member.external_id]['email'] != member.email
+  return member_exists?(member: member) && @team_member_map[member['external_id']]['email'] != member['email']
 end
 
 # Check to see if this members is already in DropBox.
 # Relies on having the DropBox external_id set to the UOA Login
-# @param member [OpenStruct] Struct created from LDAP fetch of users attributes
+# @param member [Hash] Struct created from LDAP fetch of users attributes
 def member_exists?(member:)
   cache_all_team_members if @team_member_map.nil?
-  return @team_member_map[member.external_id] != nil
+  return @team_member_map[member['external_id']] != nil
 end
 
 # set the Dropbox user profile attributes to those in the UoA LDAP
@@ -321,8 +337,8 @@ def update_team_users_profiles(email:)
     warn "Error: In update_team_users_profiles(): No LDAP entry for #{email}"
   else
     begin
-      attr.email = @manual_users[attr.external_id].email unless @manual_users[attr.external_id].nil? # Override email, if in exceptions
-      @dbx_mng.team_members_set_profile(email: attr.email, given_name: attr.given_name, surname: attr.surname, new_external_id: attr.external_id, trace: false)
+      attr['email'] = @manual_users[attr['external_id']]['email'] unless @manual_users[attr['external_id']].nil? # Override email, if in exceptions
+      @dbx_mng.team_members_set_profile(email: attr['email'], given_name: attr['given_name'], surname: attr['surname'], new_external_id: attr['external_id'], trace: false)
     rescue WIKK::WebBrowser::Error, StandardError => _e
       # Ignore, as it has been reported. Caught, so we don't fail due to an error.
     end
