@@ -162,7 +162,7 @@ class Dropbox
       member_details_json = []
       members_details_20.each do |m|
         if m != nil # Shouldn't ever get a nil
-          member_details_json << "{  \"member_email\":\"#{m.email}\",\"member_given_name\":\"#{m.given_name}\",\"member_surname\":\"#{m.surname}\",\"member_external_id\":\"#{m.external_id}\",\"send_welcome_email\":#{send_welcome},\"role\":{\".tag\":\"member_only\"}}"
+          member_details_json << "{  \"member_email\":\"#{m['email']}\",\"member_given_name\":\"#{m['given_name']}\",\"member_surname\":\"#{m['surname']}\",\"member_external_id\":\"#{m['external_id']}\",\"send_welcome_email\":#{send_welcome},\"role\":{\".tag\":\"member_only\"}}"
         end
       end
       member_query = "{\"new_members\": [ #{member_details_json.join(',')} ]}"
@@ -270,12 +270,12 @@ class Dropbox
   def members_get_info(members:, trace: false)
     members_json = []
     members.each do |m|
-      if m.team_member_id != nil
-        members_json << "{\".tag\":\"team_member_id\",\"team_member_id\":\"#{m.team_member_id}\"}"
-      elsif m.external_id != nil
-        members_json << "{\".tag\":\"external_id\",\"external_id\":\"#{m.external_id}\"}"
-      elsif m.email != nil
-        members_json << "{\".tag\":\"email\",\"email\":\"#{m.email}\"}"
+      if m['team_member_id'] != nil
+        members_json << "{\".tag\":\"team_member_id\",\"team_member_id\":\"#{m['team_member_id']}\"}"
+      elsif m['external_id'] != nil
+        members_json << "{\".tag\":\"external_id\",\"external_id\":\"#{m['external_id']}\"}"
+      elsif m['email'] != nil
+        members_json << "{\".tag\":\"email\",\"email\":\"#{m['email']}\"}"
       end
     end
     dropbox_query(query: '2/team/members/get_info', query_data: "{\"members\":[#{members_json.join(',')}]}", trace: trace)
