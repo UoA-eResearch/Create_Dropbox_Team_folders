@@ -86,7 +86,7 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
 
     begin
       email_address_list = []  # create a blank email list for this group
-      members.each { |m| email_address_list << m.email } # add users emails to the group
+      members.each { |m| email_address_list << m['email'] } # add users emails to the group
       @failed_to_add.each { |email| email_address_list.delete(email) }
       # Do a diff, and add or remove users from the dropbox group.
       update_dropbox_group(group_name: groupname, email_list: email_address_list, dryrun: dryrun, trace: trace)
@@ -98,14 +98,14 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
   @manual_users.each do |upi, ldap_entry|
     if @team_member_map[upi].nil?
       warn "process_manual_groups: Unknown dropbox account, when changing role, for #{upi}"
-    elsif @team_member_map[upi]['role'] != ldap_entry.role
+    elsif @team_member_map[upi]['role'] != ldap_entry['role']
       if dryrun
-        puts "Changing role of #{upi} to #{ldap_entry.role}"
+        puts "Changing role of #{upi} to #{ldap_entry['role']}"
       else
-        @dbx_mng.team_members_set_admin_permissions(team_member_id: @team_member_map[upi]['team_member_id'], role: ldap_entry.role, trace: trace)
+        @dbx_mng.team_members_set_admin_permissions(team_member_id: @team_member_map[upi]['team_member_id'], role: ldap_entry['role'], trace: trace)
       end
     elsif dryrun
-      puts "Role of #{upi} unchanged from #{ldap_entry.role}"
+      puts "Role of #{upi} unchanged from #{ldap_entry['role']}"
     end
   end
 end
