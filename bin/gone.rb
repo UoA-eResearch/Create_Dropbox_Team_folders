@@ -24,14 +24,14 @@ def record_research_groups_and_users
 
   research_projects = JSON.parse(File.read("#{__dir__}/../conf/projects.json"))
   research_projects.each do |rp|
-    ['rw', 'ro'].each do |suffix|
+    [ 'rw', 'ro' ].each do |suffix|
       group_name = "#{rp['research_code']}_#{suffix}.eresearch"
       @research_groups[group_name] = true  # record the research groups
       member_array, _email_addresses = fetch_group_and_email_addresses(groupname: group_name)
       next if member_array.nil?
 
       member_array.each do |m|
-        @research_project_users[m.external_id] = true  # record every user we encounter
+        @research_project_users[m['external_id']] = true  # record every user we encounter
       end
     end
   end
@@ -53,10 +53,14 @@ output = [] # lines of output, so we can sort them.
       output << "Staff/PhD     No Proj   #{k} => #{v['email']} #{v['name']['display_name']}"
     end
   else
-    output << if @research_project_users[k].nil?
-                "Not Staff/PhD No Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
+    in_out = @research_project_users[k].nil? ? 'No' : 'In'
+    output << if @ldap.memberof?(user: k, group: 'Enrolled.now')
+                category = @ldap.memberof?(user: k, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
+                "#{category} #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
+              elsif @ldap.memberof?(user: k, group: 'academic_emp.psrwi')
+                "Casual Academic #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
               else
-                "Not Staff/PhD In Proj  #{k} => #{v['email']} #{v['name']['display_name']}"
+                "Not Staff/PhD #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
               end
   end
 end
