@@ -44,23 +44,34 @@ end
 
 init
 cache_all_team_members(trace: TRACE)
+# team_info_record = @dbx_info.team_info
+team_info_record = @dbx_info.team_membership_stats
 record_research_groups_and_users
 output = [] # lines of output, so we can sort them.
 
+counters = {}
+
 @team_member_map.each do |k, v|
+  in_out = @research_project_users[k].nil? ? 'No' : 'In'
   if @ldap.memberof?(user: k, group: 'nectar_access.eresearch')
-    if @research_project_users[k].nil?
-      output << "Staff/PhD     No Proj   #{k} => #{v['email']} #{v['name']['display_name']}"
-    end
+    output << "Staff/PhD #{in_out} Proj   #{k} => #{v['email']} #{v['name']['display_name']}"
+    counters["Staff/PhD #{in_out} Proj"] ||= 0
+    counters["Staff/PhD #{in_out} Proj"] += 1
   else
-    in_out = @research_project_users[k].nil? ? 'No' : 'In'
     output << if @ldap.memberof?(user: k, group: 'Enrolled.now')
+                # Already captured PhD above, so this is either Masters or below
                 category = @ldap.memberof?(user: k, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
+                counters["#{category} #{in_out} Proj"] ||= 0
+                counters["#{category} #{in_out} Proj"] += 1
                 "#{category} #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
               elsif @ldap.memberof?(user: k, group: 'academic_emp.psrwi')
+                counters["Casual Academic #{in_out} Proj"] ||= 0
+                counters["Casual Academic #{in_out} Proj"] += 1
                 "Casual Academic #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
               else
-                "Not Staff/PhD #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
+                counters["No affiliation #{in_out} Proj"] ||= 0
+                counters["No affiliation #{in_out} Proj"] += 1
+                "No affiliation #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
               end
   end
 end
@@ -72,3 +83,9 @@ puts 'Manually added Entries with no External_ID set!'
   p v['email']
 end
 puts
+
+p team_info_record
+
+counters.sort.each do |k, v|
+  puts "#{k}: #{v}"
+end
