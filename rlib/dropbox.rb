@@ -23,12 +23,12 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @param retry_count [Integer] If we get a Dropbox "Too Many Requests", we sleep and retry for a max of 3 additional times
   # @return [Array<Hash>] Dropbox response is a JSON array, which we parse, and return as a Ruby Array.
-  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0)
+  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0, content_type: 'application/json')
     WIKK::WebBrowser.https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
         r = wb.post_page( query: query,
                           authorization: wb.bearer_authorization(token: @auth_token),
-                          content_type: 'application/json',
+                          content_type: content_type,
                           data: query_data,
                           extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {}
                         )
@@ -51,7 +51,9 @@ class Dropbox
           raise e
         end
       rescue StandardError => e
-        warn "Error: #{e.class} #{e}"
+        backtrace = e.backtrace[0].split(':')
+        p backtrace
+        warn "Error: (#{File.basename(backtrace[-3])} #{backtrace[-2]}): #{e.message.to_s.gsub(/'/, '\\\'')}".gsub(/\n/, ' ').gsub(/</, '&lt;').gsub(/>/, '&gt;')
       end
     end
   end
@@ -355,5 +357,16 @@ class Dropbox
       puts query_data_a.join(',')
       dropbox_query(query: '2/team/members/set_profile', query_data: query_data_a.join(',') + '}', trace: trace)
     end
+  end
+
+  def team_info(trace: false)
+    # Dropbox rejects this particular POST unless content_type is ''
+    # Other posts with no query data seem to work fine with '{}' passed for the query data.
+    dropbox_query(query: '2/team/get_info', query_data: '', content_type: '', trace: trace)
+  end
+
+  def team_membership_stats(trace: false)
+    s = (Time.now - (2 * 86400)).strftime('%Y-%m-%d')
+    dropbox_query(query: '2/team/reports/get_membership', query_data: { start_date: s }.to_json, trace: trace)
   end
 end
