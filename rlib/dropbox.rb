@@ -367,6 +367,6 @@ class Dropbox
 
   def team_membership_stats(trace: false)
     s = (Time.now - (2 * 86400)).strftime('%Y-%m-%d')
-    dropbox_query(query: '2/team/reports/get_membership', query_data: { start_date: s }.to_json, trace: trace)
+    dropbox_query(query: '2/team/reports/get_membership', query_data: { start_date: s }, trace: trace)
   end
 end
