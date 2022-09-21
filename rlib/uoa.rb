@@ -3,6 +3,7 @@
 # @param groupname [String] LDAP group name
 # @return [Array<Hash>,Array<String>] Two arrays returned. First is individual's details, Second is just their email address
 def fetch_group_and_email_addresses(groupname:, second_go: false )
+  @external_emails_just_once ||= {}
   member_array = @ldap.get_ldap_group_members(groupname: groupname)
   if member_array.nil?
     warn "ERROR: no LDAP result for #{groupname}"
@@ -19,8 +20,11 @@ def fetch_group_and_email_addresses(groupname:, second_go: false )
     if m['email'] =~ /^.+@auckland\.ac\.nz$/ || m['email'] =~ /^.+@aucklanduni\.ac\.nz$/
       email_addresses << m['email']
     else
-      warn "Non-UoA Email Address: #{m['external_id']} #{m['email']} #{m['surname']} #{m['given_name']}. Using #{m['external_id']}@aucklanduni.ac.nz"
       aucklanduni_email = "#{m['external_id']}@aucklanduni.ac.nz".downcase
+      if @external_emails_just_once[aucklanduni_email].nil?
+        warn "Non-UoA Email Address: #{m['external_id']} #{m['email']} #{m['surname']} #{m['given_name']}. Using #{aucklanduni_email}"
+        @external_emails_just_once[aucklanduni_email] = true
+      end
       email_addresses << aucklanduni_email
       m['email'] = aucklanduni_email
     end
