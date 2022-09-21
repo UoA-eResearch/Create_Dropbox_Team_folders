@@ -14,6 +14,8 @@ def init
 
   # Team information – Information about the team and aggregate usage data
   @dbx_info = Dropbox.new(token: @conf.team_info_token)
+  @dbx_mng = Dropbox.new(token: @conf.team_management_token)
+
   @ldap = UOA_LDAP.new(conf: @conf)
 end
 
@@ -60,16 +62,17 @@ now = Time.now
   if invited
     invited_on = Time.parse(profile['invited_on'])
     category = 'Invited'
-    if (now - invited_on) / 86400 > 93
+    if (now - invited_on) / 86400 > 93 # Added over 3 months ago.
       counters["#{category} Old #{in_out} Proj"] ||= 0
       counters["#{category} Old #{in_out} Proj"] += 1
       if in_out == 'No'
-        puts "delete #{profile}"
+        puts "Deleting #{upi} #{profile['email']}: old invite, with no project"
+        # Can't keep an invited, but not accepted account.
+        @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: false)
       end
-    else
+    else # Recent additions
       counters["#{category} #{in_out} Proj"] ||= 0
       counters["#{category} #{in_out} Proj"] += 1
-      p profile if in_out == 'No'
     end
   end
 
@@ -83,8 +86,22 @@ now = Time.now
                  # Already captured PhD above, so this is either Masters or below
                  @ldap.memberof?(user: upi, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
                elsif @ldap.memberof?(user: upi, group: 'academic_emp.psrwi')
+                 # We already captured Full time and fixed term, so this must be a Casual
                  'Casual Academic'
+               elsif @ldap.memberof?(user: upi, group: 'professional_casual_emp.psrwi')
+                 # We already captured Full time and fixed term, so this must be a Casual
+                 'Casual Professional'
+               elsif @ldap.memberof?(user: upi, group: 'ExternalCollaborators.psrwi')
+                 # Visitors get captured as staff
+                 'External Collaborator'
+               elsif @ldap.memberof?(user: upi, group: 'Contractor.psrwi')
+                 'Contractor'
                else
+                 if in_out == 'No'
+                   puts "Deleting #{upi} #{profile['email']}: No affiliation, with no project"
+                   # Can't keep an invited, but not accepted account.
+                   @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: true)
+                 end
                  'No affiliation'
                end
     counters["#{category} #{in_out} Proj"] ||= 0
