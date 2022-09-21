@@ -3,6 +3,7 @@ require 'wikk_configuration'
 require_relative '../rlib/dropbox.rb'
 require_relative '../rlib/uoa.rb' # Localized front ends to dropbox and ldap calls.
 require_relative '../rlib/ldap.rb'
+require 'time'
 
 TRACE = false # Dump output of calls to dropbox
 DRYRUN = false # Run through actions, printing what would have been done, but don't execute them
@@ -51,28 +52,44 @@ output = [] # lines of output, so we can sort them.
 
 counters = {}
 
-@team_member_map.each do |k, v|
-  in_out = @research_project_users[k].nil? ? 'No' : 'In'
-  if @ldap.memberof?(user: k, group: 'nectar_access.eresearch')
-    output << "Staff/PhD #{in_out} Proj   #{k} => #{v['email']} #{v['name']['display_name']}"
-    counters["Staff/PhD #{in_out} Proj"] ||= 0
-    counters["Staff/PhD #{in_out} Proj"] += 1
+# enumerate all profiles.
+now = Time.now
+@team_member_map.each do |upi, profile|
+  in_out = @research_project_users[upi].nil? ? 'No' : 'In'
+  invited = profile['status']['.tag'] == 'invited'
+  if invited
+    invited_on = Time.parse(profile['invited_on'])
+    category = 'Invited'
+    if (now - invited_on) / 86400 > 93
+      counters["#{category} Old #{in_out} Proj"] ||= 0
+      counters["#{category} Old #{in_out} Proj"] += 1
+      if in_out == 'No'
+        puts "delete #{profile}"
+      end
+    else
+      counters["#{category} #{in_out} Proj"] ||= 0
+      counters["#{category} #{in_out} Proj"] += 1
+      p profile if in_out == 'No'
+    end
+  end
+
+  if @ldap.memberof?(user: upi, group: 'nectar_access.eresearch')
+    category = 'Staff/PhD'
+    output << "#{category} #{in_out} Proj   #{upi} => #{profile['email']} #{profile['name']['display_name']}"
+    counters["#{category} #{in_out} Proj"] ||= 0
+    counters["#{category} #{in_out} Proj"] += 1
   else
-    output << if @ldap.memberof?(user: k, group: 'Enrolled.now')
-                # Already captured PhD above, so this is either Masters or below
-                category = @ldap.memberof?(user: k, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
-                counters["#{category} #{in_out} Proj"] ||= 0
-                counters["#{category} #{in_out} Proj"] += 1
-                "#{category} #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
-              elsif @ldap.memberof?(user: k, group: 'academic_emp.psrwi')
-                counters["Casual Academic #{in_out} Proj"] ||= 0
-                counters["Casual Academic #{in_out} Proj"] += 1
-                "Casual Academic #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
-              else
-                counters["No affiliation #{in_out} Proj"] ||= 0
-                counters["No affiliation #{in_out} Proj"] += 1
-                "No affiliation #{in_out} Proj  #{k} => #{v['email']}} #{v['name']['display_name']}"
-              end
+    category = if @ldap.memberof?(user: upi, group: 'Enrolled.now')
+                 # Already captured PhD above, so this is either Masters or below
+                 @ldap.memberof?(user: upi, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
+               elsif @ldap.memberof?(user: upi, group: 'academic_emp.psrwi')
+                 'Casual Academic'
+               else
+                 'No affiliation'
+               end
+    counters["#{category} #{in_out} Proj"] ||= 0
+    counters["#{category} #{in_out} Proj"] += 1
+    output << "#{category} #{in_out} Proj  #{upi} => #{profile['email']}} #{profile['name']['display_name']}"
   end
 end
 output.sort.each { |l| puts l }
