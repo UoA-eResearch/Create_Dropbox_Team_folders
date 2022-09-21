@@ -180,6 +180,29 @@ class Dropbox
     return failed_to_add
   end
 
+  # Remove a member from the team
+  # @param team_member_id [String] Users Dropbox member ID
+  # @param keep_account [Boolean] If true, the account becomes a basic dropbox account
+  # @param wipe_data [Boolean] Wipe the users data, unless we are keeping or transferring it
+  # @param trace [Boolean] Debugging on
+  def team_remove_member(team_member_id:, keep_account: false, wipe_data: true, transfer_to: nil, trace: nil)
+    # Don't wipe the data if we are keeping the account (becomes a non-Team basic account)
+    # Or if we are transferring the account to another dropbox account.
+    # They still lose Team access, if the account is kept or transferred.
+    wipe_data = false if keep_account || !transfer_to.nil?
+    member = {
+      user: { '.tag' => 'team_member_id', team_member_id: team_member_id },
+      keep_account: keep_account,
+      wipe_data: wipe_data,
+      retain_team_shares: false # Don't retain access to team folders. They can always be invited back in.
+    }
+
+    # Unlikely, but we might want to transfer the account to a different ID
+    members['transfer_dest_id'] = { '.tag' => 'team_member_id', team_member_id: transfer_to } unless transfer_to.nil?
+
+    dropbox_query(query: '2/team/members/remove', query_data: member, trace: trace)
+  end
+
   # Change the users role
   # @param team_member_id [String] Dropbox member account to modify
   # @param role [String] One of ['team_admin', 'user_management_admin', 'support_admin', 'member_only']
