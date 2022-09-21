@@ -98,7 +98,7 @@ now = Time.now
                  'Contractor'
                else
                  if in_out == 'No'
-                   puts "Deleting #{upi} #{profile['email']}: No affiliation, with no project"
+                   puts "Disconnecting #{upi} #{profile['email']}: No affiliation, with no project"
                    # Can't keep an invited, but not accepted account.
                    @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: true)
                  end
