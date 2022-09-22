@@ -47,8 +47,6 @@ end
 
 init
 cache_all_team_members(trace: TRACE)
-# team_info_record = @dbx_info.team_info
-team_info_record = @dbx_info.team_membership_stats
 record_research_groups_and_users
 output = [] # lines of output, so we can sort them.
 
@@ -118,6 +116,8 @@ puts 'Manually added Entries with no External_ID set!'
 end
 puts
 
+# team_info_record = @dbx_info.team_info
+team_info_record = @dbx_info.team_membership_stats
 p team_info_record
 
 counters.sort.each do |k, v|
