@@ -203,6 +203,22 @@ class Dropbox
     dropbox_query(query: '2/team/members/remove', query_data: member, trace: trace)
   end
 
+  # Recover a deleted team member. THIS DOESN'T LOOK TO WORK!
+  # @param team_member_id [String] Users Dropbox member ID
+  # @param trace [Boolean] Debugging on
+  def team_recover_member(team_member_id: nil, email: nil, external_id: nil, trace: nil)
+    if ! team_member_id.nil?
+      member = { 'user' => { '.tag' => 'team_member_id', 'team_member_id' => "#{team_member_id}" } }
+    elsif ! email.nil?
+      member = { 'user' => { '.tag' => 'email', 'email' => "#{email}" } }
+    elsif ! external_id.nil?
+      member = { 'user' => { '.tag' => 'external_id', 'external_id' => "#{external_id}" } }
+    else
+      raise 'team_recover_member() requires one of team_member_id, email or external_id'
+    end
+    dropbox_query(query: '2/team/members/recover', query_data: member, trace: trace)
+  end
+
   # Change the users role
   # @param team_member_id [String] Dropbox member account to modify
   # @param role [String] One of ['team_admin', 'user_management_admin', 'support_admin', 'member_only']
@@ -304,6 +320,24 @@ class Dropbox
       end
     end
     dropbox_query(query: '2/team/members/get_info', query_data: "{\"members\":[#{members_json.join(',')}]}", trace: trace)
+  end
+
+  # Get details on specified members.
+  # @param members [Array<Object>] identify members by team_member_id | external_id | email
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # Returns structure different to the v1 version of this call.
+  def members_get_info_v2(members:, trace: false)
+    members_array = []
+    members.each do |h|
+      (tag, key) = h.to_a[0]
+      case tag
+      when 'team_member_id', 'email', 'external_id'
+        members_array << { '.tag' => tag, "#{tag}" => "#{key}" }
+      else
+        raise 'members_get_info_v2() Only team_member_id, email or external_id can be used as indexes'
+      end
+    end
+    dropbox_query(query: '2/team/members/get_info_v2', query_data: { 'members' => members_array }, trace: trace)
   end
 
   # Get info on specified groups
