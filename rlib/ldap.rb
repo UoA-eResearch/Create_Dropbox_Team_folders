@@ -8,8 +8,9 @@ class UOA_LDAP
   # @param conf [Object] must respond to ldap_user and ldap_auth_token
   def initialize(conf:)
     @ldap = Net::LDAP.new host: LDAP_SERVER, # your LDAP host name or IP goes here,
-                          port: '389', # your LDAP host port goes here,
-                          # :encryption => :simple_tls,
+                          # port: '389', # unencrypted LDAP host port,
+                          port: '636', # TLS port
+                          encryption: :simple_tls,
                           base: 'DC=UoA,DC=auckland,DC=ac,DC=nz', # the base of your AD tree goes here,
                           auth: {
                             method: :simple,
