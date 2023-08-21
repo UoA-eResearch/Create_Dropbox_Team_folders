@@ -183,9 +183,12 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
     @research_project_users[m['external_id']] = true  # record every user we encounter
 
     if !member_exists?(member: m)
-      # If they don't already exist, then remember this record
-      members_to_add << m unless m['bad_email']
-      update_team_member_map(member: m) # Adds a placeholder, so we don't add this user again, while processing a later research group.
+      if free_license?
+        members_to_add << m unless m['bad_email']
+        update_team_member_map(member: m) # Adds a placeholder, so we don't add this user again, while processing a later research group.
+      else
+        warn "WARNING: No Free Licenses. Cannot add #{m['external_id']} #{m['email']}"
+      end
     elsif email_address_changed?(member: m)
       # They already exist in Dropbox, but the email record is now different
       if m['email'].empty?
