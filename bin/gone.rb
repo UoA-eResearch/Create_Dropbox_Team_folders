@@ -17,6 +17,10 @@ def init
   @dbx_mng = Dropbox.new(token: @conf.team_management_token)
 
   @ldap = UOA_LDAP.new(conf: @conf)
+
+  @counters = {}
+  cache_all_team_members(trace: TRACE)
+  record_research_groups_and_users
 end
 
 def record_research_groups_and_users
@@ -45,81 +49,91 @@ def record_research_groups_and_users
   end
 end
 
-init
-cache_all_team_members(trace: TRACE)
-record_research_groups_and_users
-output = [] # lines of output, so we can sort them.
+def check_user_membership
+  output = [] # lines of output, so we can sort them.
 
-counters = {}
-
-# enumerate all profiles.
-now = Time.now
-@team_member_map.each do |upi, profile|
-  in_out = @research_project_users[upi].nil? ? 'No' : 'In'
-  invited = profile['status']['.tag'] == 'invited'
-  if invited
-    invited_on = Time.parse(profile['invited_on'])
-    category = 'Invited'
-    if (now - invited_on) / 86400 > 93 # Added over 3 months ago.
-      counters["#{category} Old #{in_out} Proj"] ||= 0
-      counters["#{category} Old #{in_out} Proj"] += 1
-      if in_out == 'No'
-        puts "Deleting #{upi} #{profile['email']}: old invite, with no project"
-        # Can't keep an invited, but not accepted account.
-        @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: false)
+  # enumerate all profiles.
+  now = Time.now
+  @team_member_map.each do |upi, profile|
+    deleted = false
+    in_out = @research_project_users[upi].nil? ? 'No' : 'In'
+    invited = profile['status']['.tag'] == 'invited'
+    if invited
+      invited_on = Time.parse(profile['invited_on'])
+      category = 'Invited'
+      if (now - invited_on) / 86400 > 93 # Added over 3 months ago.
+        @counters["#{category} Old #{in_out} Proj"] ||= 0
+        @counters["#{category} Old #{in_out} Proj"] += 1
+        if in_out == 'No'
+          puts "Deleting #{upi} #{profile['email']}: old invite, with no project"
+          # Can't keep an invited, but not accepted account.
+          @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: false)
+          deleted = true
+        end
+      else # Recent additions
+        @counters["#{category} #{in_out} Proj"] ||= 0
+        @counters["#{category} #{in_out} Proj"] += 1
       end
-    else # Recent additions
-      counters["#{category} #{in_out} Proj"] ||= 0
-      counters["#{category} #{in_out} Proj"] += 1
+    end
+
+    if @ldap.memberof?(user: upi, group: 'nectar_access.eresearch')
+      category = 'Staff/PhD'
+      output << "#{category} #{in_out} Proj   #{upi} => #{profile['email']} #{profile['name']['display_name']}"
+      @counters["#{category} #{in_out} Proj"] ||= 0
+      @counters["#{category} #{in_out} Proj"] += 1
+    else
+      category = if @ldap.memberof?(user: upi, group: 'Enrolled.now')
+                   # Already captured PhD above, so this is either Masters or below
+                   @ldap.memberof?(user: upi, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
+                 elsif @ldap.memberof?(user: upi, group: 'academic_emp.psrwi')
+                   # We already captured Full time and fixed term, so this must be a Casual
+                   'Casual Academic'
+                 elsif @ldap.memberof?(user: upi, group: 'professional_casual_emp.psrwi')
+                   # We already captured Full time and fixed term, so this must be a Casual
+                   'Casual Professional'
+                 elsif @ldap.memberof?(user: upi, group: 'ExternalCollaborators.psrwi')
+                   # Visitors get captured as staff
+                   'External Collaborator'
+                 elsif @ldap.memberof?(user: upi, group: 'Contractor.psrwi')
+                   'Contractor'
+                 else
+                   if in_out == 'No' && !deleted
+                     puts "Disconnecting #{upi} #{profile['email']}: No affiliation, with no project"
+                     # Can't keep an invited, but not accepted account.
+                     @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: true)
+                   end
+                   'No affiliation'
+                 end
+      @counters["#{category} #{in_out} Proj"] ||= 0
+      @counters["#{category} #{in_out} Proj"] += 1
+      output << "#{category} #{in_out} Proj  #{upi} => #{profile['email']}} #{profile['name']['display_name']}"
     end
   end
+  output.sort.each { |l| puts l }
+  puts
 
-  if @ldap.memberof?(user: upi, group: 'nectar_access.eresearch')
-    category = 'Staff/PhD'
-    output << "#{category} #{in_out} Proj   #{upi} => #{profile['email']} #{profile['name']['display_name']}"
-    counters["#{category} #{in_out} Proj"] ||= 0
-    counters["#{category} #{in_out} Proj"] += 1
-  else
-    category = if @ldap.memberof?(user: upi, group: 'Enrolled.now')
-                 # Already captured PhD above, so this is either Masters or below
-                 @ldap.memberof?(user: upi, group: 'Thesis-PhD.ec') ? 'Masters' : 'Student'
-               elsif @ldap.memberof?(user: upi, group: 'academic_emp.psrwi')
-                 # We already captured Full time and fixed term, so this must be a Casual
-                 'Casual Academic'
-               elsif @ldap.memberof?(user: upi, group: 'professional_casual_emp.psrwi')
-                 # We already captured Full time and fixed term, so this must be a Casual
-                 'Casual Professional'
-               elsif @ldap.memberof?(user: upi, group: 'ExternalCollaborators.psrwi')
-                 # Visitors get captured as staff
-                 'External Collaborator'
-               elsif @ldap.memberof?(user: upi, group: 'Contractor.psrwi')
-                 'Contractor'
-               else
-                 if in_out == 'No'
-                   puts "Disconnecting #{upi} #{profile['email']}: No affiliation, with no project"
-                   # Can't keep an invited, but not accepted account.
-                   @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: true)
-                 end
-                 'No affiliation'
-               end
-    counters["#{category} #{in_out} Proj"] ||= 0
-    counters["#{category} #{in_out} Proj"] += 1
-    output << "#{category} #{in_out} Proj  #{upi} => #{profile['email']}} #{profile['name']['display_name']}"
+  puts 'Manually added Entries with no External_ID set!'
+  @partial_entries.each do |v|
+    p v['email']
   end
 end
-output.sort.each { |l| puts l }
-puts
 
-puts 'Manually added Entries with no External_ID set!'
-@partial_entries.each do |v|
-  p v['email']
+def print_team_stats
+  # team_info_record = @dbx_info.team_info
+  team_info_record = @dbx_info.team_info
+  puts <<~TXT
+    Max Licenses:  #{team_info_record['num_licensed_users']} (Really 2,215)
+    Used Licenses: #{team_info_record['num_used_licenses']}
+  TXT
 end
+
+init
+
+check_user_membership
+puts
+print_team_stats
 puts
 
-# team_info_record = @dbx_info.team_info
-team_info_record = @dbx_info.team_membership_stats
-p team_info_record
-
-counters.sort.each do |k, v|
+@counters.sort.each do |k, v|
   puts "#{k}: #{v}"
 end
