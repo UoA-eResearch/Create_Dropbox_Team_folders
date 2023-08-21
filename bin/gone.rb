@@ -76,7 +76,7 @@ def check_user_membership
       end
     end
 
-    if @ldap.memberof?(user: upi, group: 'nectar_access.eresearch')
+    if @ldap.memberof?(user: upi, group: 'dropbox_access.eresearch')
       category = 'Staff/PhD'
       output << "#{category} #{in_out} Proj   #{upi} => #{profile['email']} #{profile['name']['display_name']}"
       @counters["#{category} #{in_out} Proj"] ||= 0
