@@ -324,6 +324,18 @@ def member_exists?(member:)
   return @team_member_map[member['external_id']] != nil
 end
 
+def members
+  @team_member_map.length
+end
+
+def free_licenses
+  @licenses - @team_member_map.length
+end
+
+def free_license?
+  @team_member_map.length < @licenses
+end
+
 # set the Dropbox user profile attributes to those in the UoA LDAP
 # @param email [String] Email address used for identity of the user in DropBox.
 def update_team_users_profiles(email:)
