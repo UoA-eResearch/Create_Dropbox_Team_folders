@@ -29,6 +29,8 @@ def init_connections
   # Replaces using an Admin's user_token, which no longer works.
   # @dbx_person = Dropbox.new(token: @conf.user_token, as_admin: true)
   @dbx_person = Dropbox.new(token: @conf.team_file_token, admin_id: @conf.admin_id)
+
+  @licenses = @conf.licenses
 end
 
 # Do housekeeping, by ensuring all manually added people have their profile set correctly.

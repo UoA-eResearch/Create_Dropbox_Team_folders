@@ -21,6 +21,8 @@ def init
   @counters = {}
   cache_all_team_members(trace: TRACE)
   record_research_groups_and_users
+
+  @licenses = @conf.licenses
 end
 
 def record_research_groups_and_users
@@ -122,7 +124,7 @@ def print_team_stats
   # team_info_record = @dbx_info.team_info
   team_info_record = @dbx_info.team_info
   puts <<~TXT
-    Max Licenses:  #{team_info_record['num_licensed_users']} (Really 2,215)
+    Max Licenses:  #{team_info_record['num_licensed_users']} (Really #{@licenses})
     Used Licenses: #{team_info_record['num_used_licenses']}
   TXT
 end
