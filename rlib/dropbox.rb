@@ -421,9 +421,4 @@ class Dropbox
     # Other posts with no query data seem to work fine with '{}' passed for the query data.
     dropbox_query(query: '2/team/get_info', query_data: '', content_type: '', trace: trace)
   end
-
-  def team_membership_stats(trace: false)
-    s = (Time.now - (2 * 86400)).strftime('%Y-%m-%d')
-    dropbox_query(query: '2/team/reports/get_membership', query_data: { start_date: s }, trace: trace)
-  end
 end
