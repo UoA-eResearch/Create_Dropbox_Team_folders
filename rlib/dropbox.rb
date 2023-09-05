@@ -1,6 +1,7 @@
 require 'wikk_webbrowser'
 require 'json'
 require 'pp'
+require 'time'
 
 # Encapsulate Dropbox API REST calls
 class Dropbox
@@ -65,7 +66,7 @@ class Dropbox
     r = dropbox_query(query: '2/team/members/list', trace: trace)
     r['members'].each(&block)
     while r['has_more']
-      r = dropbox_query(query: '2/team/members/list/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team/members/list/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       r['members'].each(&block)
     end
   end
@@ -77,7 +78,7 @@ class Dropbox
     r = dropbox_query(query: '2/team/groups/list', trace: trace)
     r['groups'].each(&block)
     while r['has_more']
-      r = dropbox_query(query: '2/team/groups/list/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team/groups/list/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       r['groups'].each(&block)
     end
   end
@@ -97,13 +98,23 @@ class Dropbox
   # Get all the folders for our team
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @yield [Hash] Hash for each folders in the response Array
-  def team_folder_list(trace: false, &block)
-    r = dropbox_query(query: '2/team/team_folder/list', trace: trace)
+  def team_folder_list(trace: false, limit: 1000, &block)
+    r = dropbox_query(query: '2/team/team_folder/list', query_data: { limit: limit }, trace: trace)
     r['team_folders'].each(&block)
     while r['has_more']
-      r = dropbox_query(query: '2/team/team_folder/list/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team/team_folder/list/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       r['team_folders'].each(&block)
     end
+  end
+
+  # Get info for a list of team folder ids. Same output of team_folder_list, but not in an array.
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @param folder_ids [Array] of team folder ids
+  # @yield [Hash] Hash for each folders in the response Array
+  def team_folder_info(folder_ids:, trace: false)
+    r = dropbox_query(query: '2/team/team_folder/get_info', query_data: { team_folder_ids: folder_ids }, trace: trace)
+    # Return is just line separated hashes. Not surrounding [], so limit the call to one team id
+    yield r
   end
 
   # Create a team folder
@@ -111,7 +122,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @return [Hash] result from dropbox
   def team_folder_create(folder:, trace: false)
-    dropbox_query(query: '2/team/team_folder/create', query_data: "{\"name\":\"#{folder}\"}", trace: trace)
+    dropbox_query(query: '2/team/team_folder/create', query_data: { name: folder }, trace: trace)
   end
 
   # Find a team folders ID from its name (not something Dropbox API does)
@@ -133,7 +144,7 @@ class Dropbox
     r = dropbox_query(query: '2/team/namespaces/list', trace: trace)
     r['namespaces'].each(&block)
     while r != nil && r['has_more']
-      r = dropbox_query(query: '2/team/namespaces/list/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team/namespaces/list/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       next unless r != nil
 
       r['namespaces'].each(&block)
@@ -141,13 +152,26 @@ class Dropbox
   end
 
   # Get all the dropbox events for our team.
+  # Default to 31 days
   # @param trace [Boolean] If true, then print result of the query to stdout
+  # @param event [String] Filter events based on string (see Dropbox API)
+  # @param limit [Integer] limit each pull of events to limit specified
   # @yield [Hash] Hash for each event in the response Array
-  def get_events(trace: false, &block)
-    r = dropbox_query(query: '2/team_log/get_events', trace: trace)
+  def get_events(event: 'file_operations', start_time: nil, end_time: nil, limit: 1000, trace: false, &block)
+    end_time = Time.now if end_time.nil?
+    start_time = (end_time - 3600 * 24 * 31) if start_time.nil?
+
+    query = { category: event,
+              time: { start_time: start_time.strftime('%Y-%m-%dT%H:%M:%SZ'), end_time: end_time.strftime('%Y-%m-%dT%H:%M:%SZ') },
+              limit: limit
+            }
+
+    r = dropbox_query(query: '2/team_log/get_events',
+                      query_data: query, trace: trace
+    )
     r['events'].each(&block)
     while r['has_more']
-      r = dropbox_query(query: '2/team_log/get_events/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team_log/get_events/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       r['events'].each(&block)
     end
   end
@@ -163,11 +187,18 @@ class Dropbox
       members_details_20 = members_details[i..i + 19]
       member_details_json = []
       members_details_20.each do |m|
-        if m != nil # Shouldn't ever get a nil
-          member_details_json << "{  \"member_email\":\"#{m['email']}\",\"member_given_name\":\"#{m['given_name']}\",\"member_surname\":\"#{m['surname']}\",\"member_external_id\":\"#{m['external_id']}\",\"send_welcome_email\":#{send_welcome},\"role\":{\".tag\":\"member_only\"}}"
-        end
+        next unless m != nil # Shouldn't ever get a nil
+
+        member_details_json << {
+          member_email: m['email'],
+          member_given_name: m['given_name'],
+          member_surname: m['surname'],
+          member_external_id: m['external_id'],
+          send_welcome_email: send_welcome,
+          role: { '.tag' => member_only }
+        }
       end
-      member_query = "{\"new_members\": [ #{member_details_json.join(',')} ]}"
+      member_query = { new_members: member_details_json }
       if (response = dropbox_query(query: '2/team/members/add', query_data: member_query, trace: trace)) != nil
         response['complete'].each do |user|
           if user['.tag'] == 'user_on_another_team' # Got a problem
@@ -228,7 +259,7 @@ class Dropbox
       warn "Error: Unknown role team_members_set_admin_permissions(team_member_id: #{team_member_id}, role: #{role})"
       return
     end
-    query_data = "{\"user\": { \".tag\": \"team_member_id\", \"team_member_id\": \"#{team_member_id}\" }, \"new_role\": \"#{role}\"}"
+    query_data = { user: { '.tag': 'team_member_id', team_member_id: team_member_id }, new_role: role }
     dropbox_query(query: '2/team/members/set_admin_permissions', query_data: query_data, trace: trace)
   end
 
@@ -238,7 +269,11 @@ class Dropbox
   # @param secondary_email_addr [String] second email address
   # @param trace [Boolean] If true, then print result of the query to stdout
   def member_add_secondary_email(team_member_id:, secondary_email_addr:, trace: false)
-    query_data = "{\"new_secondary_emails\": [{\"user\": {\".tag\": \"team_member_id\",\"team_member_id\": \"#{team_member_id}\"},\"secondary_emails\": [\"#{secondary_email_addr}\"]}]}"
+    query_data = { new_secondary_emails: [ { user: { '.tag': 'team_member_id', team_member_id: team_member_id },
+                                             secondary_emails: [ secondary_email_addr ]
+                                           }
+                                         ]
+                 }
     dropbox_query(query: '2/team/members/secondary_emails/add', query_data: query_data, trace: trace)
   end
 
@@ -246,7 +281,7 @@ class Dropbox
   # @param group_name [String] Dropbox group to create
   # @param trace [Boolean] If true, then print result of the query to stdout
   def group_create(group_name:, trace: false)
-    group_query = "{\"group_name\":\"#{group_name}\",\"group_external_id\":\"#{group_name}\",\"group_management_type\":{\".tag\":\"company_managed\"}}"
+    group_query = { group_name: group_name, group_external_id: group_name, group_management_type: { '.tag': 'company_managed' } }
     dropbox_query(query: '2/team/groups/create', query_data: group_query, trace: trace)
   end
 
@@ -259,12 +294,12 @@ class Dropbox
   def group_add_members(emails:, external_group_id: nil, group_id: nil, trace: false)
     members = []
     emails.each do |e|
-      members << "{\"user\":{\".tag\":\"email\",\"email\":\"#{e}\"},\"access_type\":{\".tag\":\"member\"}}"
+      members << { user: { '.tag': 'email', email: e }, access_type: { '.tag': 'member' } }
     end
     group_query = if group_id.nil?
-                    "{\"group\":{\".tag\":\"group_external_id\",\"group_external_id\":\"#{external_group_id}\"},\"members\":[#{members.join(',')}]}"
+                    { group: { '.tag': 'group_external_id', group_external_id: external_group_id }, members: members }
                   else
-                    "{\"group\":{\".tag\":\"group_id\",\"group_id\":\"#{group_id}\"},\"members\":[#{members.join(',')}]}"
+                    { group: { '.tag': 'group_id', group_id: group_id }, members: members }
                   end
     # puts group_query
     dropbox_query(query: '2/team/groups/members/add', query_data: group_query, trace: trace)
@@ -273,12 +308,12 @@ class Dropbox
   def group_remove_members(emails:, external_group_id: nil, group_id: nil, trace: false)
     members = []
     emails.each do |e|
-      members << "{\".tag\":\"email\",\"email\":\"#{e}\"}"
+      members << { '.tag': 'email', email: e }
     end
     group_query = if group_id.nil?
-                    "{\"group\":{\".tag\":\"group_external_id\",\"group_external_id\":\"#{external_group_id}\"},\"users\":[#{members.join(',')}]}"
+                    { group: { '.tag': 'group_external_id', group_external_id: external_group_id }, users: members }
                   else
-                    "{\"group\":{\".tag\":\"group_id\",\"group_id\":\"#{group_id}\"},\"users\":[#{members.join(',')}]}"
+                    { group: { '.tag': 'group_id', group_id: group_id }, users: members }
                   end
 
     dropbox_query(query: '2/team/groups/members/remove', query_data: group_query, trace: trace)
@@ -291,16 +326,16 @@ class Dropbox
   # @yield [String] Json string, with the attributes of each member in the group
   def group_members_list(external_group_id: nil, group_id: nil, trace: false, &block)
     if group_id != nil
-      group_query = "{\"group\":{\".tag\":\"group_id\",\"group_id\":\"#{group_id}\"}}"
+      group_query = { group: { '.tag': 'group_id', group_id: group_id } }
     elsif external_group_id != nil
-      group_query = "{\"group\":{\".tag\":\"group_external_id\",\"group_external_id\":\"#{external_group_id}\"}}"
+      group_query = { group: { '.tag': 'group_external_id', group_external_id: external_group_id } }
     else
       return nil
     end
     r = dropbox_query(query: '2/team/groups/members/list', query_data: group_query, trace: trace)
     r['members'].each(&block)
     while r['has_more']
-      r = dropbox_query(query: '2/team/groups/members/list/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/team/groups/members/list/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       r['members'].each(&block)
     end
   end
@@ -312,14 +347,14 @@ class Dropbox
     members_json = []
     members.each do |m|
       if m['team_member_id'] != nil
-        members_json << "{\".tag\":\"team_member_id\",\"team_member_id\":\"#{m['team_member_id']}\"}"
+        members_json << { '.tag': 'team_member_id', team_member_id: m['team_member_id'] }
       elsif m['external_id'] != nil
-        members_json << "{\".tag\":\"external_id\",\"external_id\":\"#{m['external_id']}\"}"
+        members_json << { '.tag': 'external_id', external_id: m['external_id'] }
       elsif m['email'] != nil
-        members_json << "{\".tag\":\"email\",\"email\":\"#{m['email']}\"}"
+        members_json << { '.tag': 'email', email: m['email'] }
       end
     end
-    dropbox_query(query: '2/team/members/get_info', query_data: "{\"members\":[#{members_json.join(',')}]}", trace: trace)
+    dropbox_query(query: '2/team/members/get_info', query_data: { members: members_json }, trace: trace)
   end
 
   # Get details on specified members.
@@ -347,9 +382,9 @@ class Dropbox
   # @return [Array] Result per group specified by external_group_ids, or by group_ids
   def group_get_info(external_group_ids: nil, group_ids: nil, trace: false)
     if group_ids != nil
-      group_query = "{\".tag\":\"group_ids\",\"group_ids\":[\"#{group_ids.join('","')}\"]}"
+      group_query = { '.tag': 'group_ids', group_ids: group_ids }
     elsif external_group_ids != nil
-      group_query = "{\".tag\":\"group_external_ids\",\"group_external_ids\":[\"#{external_group_ids.join('","')}\"]}"
+      group_query = { '.tag': 'group_external_ids', group_external_ids: external_group_ids }
     else
       return nil
     end
@@ -357,12 +392,12 @@ class Dropbox
   end
 
   def list_folder_members(folder_id:, trace: false)
-    r = dropbox_query(query: '2/sharing/list_folder_members', query_data: "{\"shared_folder_id\":\"#{folder_id}\"}", trace: trace)
+    r = dropbox_query(query: '2/sharing/list_folder_members', query_data: { shared_folder_id: folder_id }, trace: trace)
     h = { 'users' => r['users'], 'groups' => r['groups'], 'invitees' => r['invitees'] }
     yield h
     # Needs loop if too many users or groups
     while r['cursor']
-      r = dropbox_query(query: '2/sharing/list_folder_members/continue', query_data: "{\"cursor\":\"#{r['cursor']}\"}", trace: trace)
+      r = dropbox_query(query: '2/sharing/list_folder_members/continue', query_data: { cursor: r['cursor'] }, trace: trace)
       h = { 'users' => r['users'], 'groups' => r['groups'], 'invitees' => r['invitees'] }
       yield h
     end
@@ -374,7 +409,15 @@ class Dropbox
   # @param access_role [String] "editor" by default. "viewer" for read only access
   # @param trace [Boolean] If true, then print result of the query to stdout
   def add_group_folder_member(folder_id:, group_id:, access_role: 'editor', custom_message: nil, trace: false)
-    query_data = "{\"shared_folder_id\":\"#{folder_id}\",\"members\":[{\"member\":{\".tag\":\"dropbox_id\",\"dropbox_id\":\"#{group_id}\"},\"access_level\":{\".tag\":\"#{access_role}\"}}],\"custom_message\":#{custom_message.nil? ? 'null' : "\"#{custom_message}\""},\"quiet\":true}"
+    query_data = {
+      shared_folder_id: folder_id,
+      members: [ { member: { '.tag': 'dropbox_id', dropbox_id: group_id },
+                   access_level: { '.tag': access_role }
+                 }
+      ],
+      custom_message: custom_message.nil? ? 'null' : custom_message,
+      quiet: true
+    }
 
     dropbox_query(query: '2/sharing/add_folder_member', query_data: query_data, trace: trace)
   end
@@ -387,9 +430,23 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   def add_user_folder_member(folder_id:, user_id: nil, email: nil, access_role: 'editor', custom_message: nil, trace: false)
     if email != nil
-      query_data = "{\"shared_folder_id\":\"#{folder_id}\",\"members\":[{\"member\":{\".tag\":\"email\",\"email\":\"#{email}\"},\"access_level\":{\".tag\":\"#{access_role}\"}}],\"custom_message\":#{custom_message.nil? ? 'null' : "\"#{custom_message}\""},\"quiet\":false}"
+      query_data = { shared_folder_id: folder_id,
+                     members: [ { member: { '.tag': 'email', email: email },
+                                  access_level: { '.tag': access_role }
+                                }
+                     ],
+                     custom_message: custom_message.nil? ? 'null' : custom_message,
+                     quiet: false
+      }
     elsif user_id != nil
-      query_data = "{\"shared_folder_id\":\"#{folder_id}\",\"members\":[{\"member\":{\".tag\":\"dropbox_id\",\"dropbox_id\":\"#{user_id}\"},\"access_level\":{\".tag\":\"#{access_role}\"}}],\"custom_message\":#{custom_message.nil? ? 'null' : "\"#{custom_message}\""},\"quiet\":true}"
+      query_data = { shared_folder_id: folder_id,
+                     members: [ { member: { '.tag': 'dropbox_id', dropbox_id: user_id },
+                                  access_level: { '.tag': access_role }
+                                }
+                     ],
+                     custom_message: custom_message.nil? ? 'null' : custom_message,
+                     quiet: true
+                    }
     end
 
     dropbox_query(query: '2/sharing/add_folder_member', query_data: query_data, trace: trace)
@@ -398,21 +455,21 @@ class Dropbox
   def team_members_set_profile(team_member_id: nil, email: nil, external_id: nil, given_name: nil, surname: nil, new_external_id: nil, new_email: nil, trace: false)
     # 2/team/members/set_profile
     if email != nil
-      id = "{\".tag\":\"email\",\"email\":\"#{email}\"}"
+      id = { '.tag': 'email', email: email }
     elsif team_member_id != nil
-      id = "{\".tag\":\"team_member_id\",\"team_member_id\":\"#{team_member_id}\"}"
+      id = { '.tag': 'team_member_id', team_member_id: team_member_id }
     elsif external_id != nil
-      id = "{\".tag\":\"external_id\",\"external_id\":\"#{external_id}\"}"
+      id = { '.tag': 'external_id', external_id: external_id }
     end
-    query_data_a = [ "{\"user\":#{id}" ]
-    query_data_a << "\"new_external_id\":\"#{new_external_id}\"" if new_external_id
-    query_data_a << "\"new_given_name\":\"#{given_name}\"" if given_name
-    query_data_a << "\"new_surname\":\"#{surname}\"" if surname
-    query_data_a << "\"new_email\":\"#{new_email}\"" if new_email
+    query_data_a = { user: id }
+    query_data_a[:new_external_id] = new_external_id if new_external_id
+    query_data_a[:new_given_name] = given_name if given_name
+    query_data_a[:new_surname] = surname if surname
+    query_data_a[:new_email] = new_email if new_email
 
     if id != nil && query_data_a.length > 1
       puts query_data_a.join(',')
-      dropbox_query(query: '2/team/members/set_profile', query_data: query_data_a.join(',') + '}', trace: trace)
+      dropbox_query(query: '2/team/members/set_profile', query_data: query_data_a, trace: trace)
     end
   end
 
