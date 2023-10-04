@@ -1,1 +1,4 @@
-1 8,12,16,20 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cron.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/last_run.log 2>&1
+# Dropbox API is very slow, so don't increase the frequency.
+9 8,12,16,20 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cron.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/last_run.log 2>&1
+# Nightly cleanup of old accounts. They get removed if they have both no affiliation with the UoA, and are not in a research project.
+9 0 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cleanup.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/cleanup.log 2>&1
