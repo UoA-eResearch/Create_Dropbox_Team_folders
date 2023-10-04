@@ -113,8 +113,16 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
   return if member_array_rw.nil? || member_array_ro.nil? # something went wrong with the LDAP lookup, so don't proceed.
 
   if member_array_t.length == 0 && (member_array_rw.length != 0 || member_array_ro.length != 0)
-    member_array_t = member_array_rw.dup + member_array_ro
-    email_addresses_t = email_addresses_rw.dup + email_addresses_ro
+    # Make a copy of the _rw array
+    member_array_t = member_array_rw.dup
+    email_addresses_t = email_addresses_rw.dup
+    # Add in the _ro members, that aren't also in _rw
+    email_addresses_ro.each_with_index do |e, i|
+      if ! email_addresses_t.include?(e)
+        member_array_t << member_array_ro[i]
+        email_addresses_t << e
+      end
+    end
   end
 
   if (team_folder_id = get_team_folder_id(folder_name: team_folder, trace: trace)).nil?
