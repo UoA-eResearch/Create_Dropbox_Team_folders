@@ -126,6 +126,7 @@ def print_team_stats
   puts <<~TXT
     Max Licenses:  #{team_info_record['num_licensed_users']} (Really #{@licenses})
     Used Licenses: #{team_info_record['num_used_licenses']}
+    Free Licenses: #{free_licenses}
   TXT
 end
 
