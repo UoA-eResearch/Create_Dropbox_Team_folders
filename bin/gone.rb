@@ -98,6 +98,8 @@ def check_user_membership
                    'External Collaborator'
                  elsif @ldap.memberof?(user: upi, group: 'Contractor.psrwi')
                    'Contractor'
+                 elsif @ldap.memberof?(user: upi, group: 'services.ec') || @ldap.memberof?(user: upi, group: 'generic_account.ec')
+                   'Service'
                  else
                    if in_out == 'No' && !deleted
                      puts "Disconnecting #{upi} #{profile['email']}: No affiliation, with no project"
