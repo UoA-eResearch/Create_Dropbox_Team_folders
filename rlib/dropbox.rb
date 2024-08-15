@@ -4,12 +4,12 @@ require 'pp'
 require 'time'
 
 # Encapsulate Dropbox API REST calls
+# When the REST call wants no parameters. Sometimes we need to set query_data to '', sometimes to {}, and others to 'null'
 class Dropbox
   DROPBOX_API_SERVER = 'api.dropboxapi.com'
 
   def initialize(token:, admin_id: nil)
     @auth_token = token
-    @as_admin = admin_id != nil
     @admin_id = admin_id
   end
 
@@ -24,14 +24,18 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @param retry_count [Integer] If we get a Dropbox "Too Many Requests", we sleep and retry for a max of 3 additional times
   # @return [Array<Hash>] Dropbox response is a JSON array, which we parse, and return as a Ruby Array.
-  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0, content_type: 'application/json')
+  def dropbox_query(query:, query_data: '{}', trace: false, retry_count: 0, content_type: 'application/json', user_id: nil, root_ns: nil)
     WIKK::WebBrowser.https_session(host: DROPBOX_API_SERVER, verify_cert: false) do |wb|
       begin
+        extra_headers = {}
+        extra_headers['Dropbox-API-Select-Admin'] = @admin_id unless @admin_id.nil?
+        extra_headers['Dropbox-API-Select-User'] = user_id unless user_id.nil?
+        extra_headers['Dropbox-API-Path-Root'] = "{\".tag\": \"root\", \"root\": \"#{root_ns}\"}" unless root_ns.nil?
         r = wb.post_page( query: query,
                           authorization: wb.bearer_authorization(token: @auth_token),
                           content_type: content_type,
                           data: query_data,
-                          extra_headers: @as_admin ? { 'Dropbox-API-Select-Admin' => @admin_id } : {}
+                          extra_headers: extra_headers
                         )
         h = JSON.parse(r)
         puts JSON.pretty_generate(h) if trace
@@ -57,6 +61,41 @@ class Dropbox
         warn "Error: (#{File.basename(backtrace[-3])} #{backtrace[-2]}): #{e.message.to_s.gsub(/'/, '\\\'')}".gsub(/\n/, ' ').gsub(/</, '&lt;').gsub(/>/, '&gt;')
       end
     end
+  end
+
+  # Get API tags, that determine what features are active
+  # @return features [Hash]
+  def api_version(trace: false)
+    features = {
+      features: [
+        {
+          '.tag': 'has_distinct_member_homes'
+        },
+        {
+          '.tag': 'has_team_shared_dropbox'
+        },
+        {
+          '.tag': 'has_team_file_events'
+        },
+        {
+          '.tag': 'has_team_selective_sync'
+        },
+        {
+          '.tag': 'upload_api_rate_limit'
+        }
+      ]
+    }
+    return dropbox_query(query: '/2/team/features/get_values', query_data: features, trace: trace)
+  end
+
+  # This gets the account details for the user making the call.
+  # This fails with the Admin API key, unless a user is specified.
+  # Needs the team_file_token. The others fail.
+  # @param user_id [String] Team user's UUID
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @return features [Hash]
+  def get_current_account(user_id: nil, trace: false)
+    return dropbox_query(query: '/2/users/get_current_account', query_data: 'null', user_id: user_id, trace: trace)
   end
 
   # Get all the members of our team
@@ -114,6 +153,39 @@ class Dropbox
   def team_folder_info(folder_ids:, trace: false)
     r = dropbox_query(query: '2/team/team_folder/get_info', query_data: { team_folder_ids: folder_ids }, trace: trace)
     # Return is just line separated hashes. Not surrounding [], so limit the call to one team id
+    yield r
+  end
+
+  # Allow editing sharing settings of subfolders (used to be the default, but isn't now)
+  # This is a user level command, and fails using the Admin credentials,
+  # unless the specifying the Dropbox-API-Select-User HTTP header with the team_member_id
+  # or the "select_user" param.
+  # @param folder [String] Folder ID
+  # @param user_id [String] Team user's UUID
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @return [Hash] result from dropbox
+  def shared_folder_get_metadata(folder_id:, user_id: nil, trace: false)
+    r = dropbox_query(query: '2/sharing/get_folder_metadata', query_data: { shared_folder_id: folder_id }, user_id: user_id, trace: trace)
+    yield r
+  end
+
+  # Share a folder and set the sharing parameters.
+  # This is a user level command, and fails using the Admin credentials,
+  # unless the specifying the Dropbox-API-Select-User HTTP header with the team_member_id
+  # or the "select_user" param.
+  # @param folder [String] Folder ID
+  # @param meta_data [Hash] See https://www.dropbox.com/developers/documentation/http/documentation#sharing-share_folder
+  # @param user_id [String] Team user's UUID
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @return [Hash] result from dropbox
+  def shared_folder_set_metadata(folder_name:, meta_data:, user_id: nil, trace: false)
+    meta_data['path'] = folder_name
+    r = dropbox_query(query: '2/sharing/share_folder', query_data: meta_data, user_id: user_id, trace: trace)
+    yield r
+  end
+
+  def shared_folder_inheritance(folder_id:, inherit: true, user_id: nil, trace: false)
+    r = dropbox_query(query: '2/sharing/set_access_inheritance', query_data: { shared_folder_id: folder_id, access_inheritance: inherit ? 'inherit' : 'no_inherit' }, user_id: user_id, trace: trace)
     yield r
   end
 
