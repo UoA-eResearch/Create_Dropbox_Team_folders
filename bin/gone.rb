@@ -78,6 +78,12 @@ def check_user_membership
       end
     end
 
+    # Count PhD students
+    if @ldap.memberof?(user: upi, group: 'doctoralstudent.psrwi')
+      @counters['phd'] ||= 0
+      @counters['phd'] += 1
+    end
+
     if @ldap.memberof?(user: upi, group: 'dropbox_access.eresearch')
       category = 'Staff/PhD'
       output << "#{category} #{in_out} Proj   #{upi} => #{profile['email']} #{profile['name']['display_name']}"
