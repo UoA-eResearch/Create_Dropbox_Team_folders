@@ -156,7 +156,7 @@ class Dropbox
     yield r
   end
 
-  # Allow editing sharing settings of subfolders (used to be the default, but isn't now)
+  # Get editing sharing settings of subfolders
   # This is a user level command, and fails using the Admin credentials,
   # unless the specifying the Dropbox-API-Select-User HTTP header with the team_member_id
   # or the "select_user" param.
@@ -165,11 +165,39 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @return [Hash] result from dropbox
   def shared_folder_get_metadata(folder_id:, user_id: nil, trace: false)
-    r = dropbox_query(query: '2/sharing/get_folder_metadata', query_data: { shared_folder_id: folder_id }, user_id: user_id, trace: trace)
-    yield r
+    return dropbox_query(query: '2/sharing/get_folder_metadata', query_data: { shared_folder_id: folder_id }, user_id: user_id, trace: trace)
   end
 
-  # Share a folder and set the sharing parameters.
+  # Turn on/off the folder inheritance flag
+  # This is a user level command
+  # @param folder_id [String] Folder ID
+  # @param inherit [Boolean]
+  # @param user_id [String] Team user's UUID
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @return [Hash] result from dropbox
+  def shared_folder_inheritance(folder_id:, inherit: true, user_id: nil, trace: false)
+    return dropbox_query(query: '2/sharing/set_access_inheritance', query_data: { shared_folder_id: folder_id, access_inheritance: inherit ? 'inherit' : 'no_inherit' }, user_id: user_id, trace: trace)
+  end
+
+  # Set the team folder's inherited policy
+  # @param folder_id [String] Folder ID
+  # @param policy [Hash] if nil, Set to our defaults
+  # @param user_id [String] Team user's UUID
+  # @param trace [Boolean] If true, then print result of the query to stdout
+  # @return [Hash] result from dropbox
+  def team_folder_update_policy(folder_id:, policy: nil, user_id: nil, trace: false)
+    if policy.nil?
+      policy = {
+        shared_folder_id: "#{folder_id}",
+        acl_update_policy: 'editors', # "Team Members who can edit"
+        member_policy: 'anyone',      # "Folder Memebership"
+        shared_link_policy: 'anyone'  # "Link restrictions"
+      }
+    end
+    return dropbox_query(query: '2/sharing/update_folder_policy', query_data: policy, user_id: user_id, trace: trace)
+  end
+
+  # Share a folder and set the sharing parameters. See also team_folder_update_policy (which we are using after a team_folder/create)
   # This is a user level command, and fails using the Admin credentials,
   # unless the specifying the Dropbox-API-Select-User HTTP header with the team_member_id
   # or the "select_user" param.
@@ -180,13 +208,7 @@ class Dropbox
   # @return [Hash] result from dropbox
   def shared_folder_set_metadata(folder_name:, meta_data:, user_id: nil, trace: false)
     meta_data['path'] = folder_name
-    r = dropbox_query(query: '2/sharing/share_folder', query_data: meta_data, user_id: user_id, trace: trace)
-    yield r
-  end
-
-  def shared_folder_inheritance(folder_id:, inherit: true, user_id: nil, trace: false)
-    r = dropbox_query(query: '2/sharing/set_access_inheritance', query_data: { shared_folder_id: folder_id, access_inheritance: inherit ? 'inherit' : 'no_inherit' }, user_id: user_id, trace: trace)
-    yield r
+    return dropbox_query(query: '2/sharing/share_folder', query_data: meta_data, user_id: user_id, trace: trace)
   end
 
   # Create a team folder
@@ -194,7 +216,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @return [Hash] result from dropbox
   def team_folder_create(folder:, trace: false)
-    dropbox_query(query: '2/team/team_folder/create', query_data: { name: folder }, trace: trace)
+    return dropbox_query(query: '2/team/team_folder/create', query_data: { name: folder }, trace: trace)
   end
 
   # Find a team folders ID from its name (not something Dropbox API does)
@@ -548,6 +570,6 @@ class Dropbox
   def team_info(trace: false)
     # Dropbox rejects this particular POST unless content_type is ''
     # Other posts with no query data seem to work fine with '{}' passed for the query data.
-    dropbox_query(query: '2/team/get_info', query_data: '', content_type: '', trace: trace)
+    dropbox_query(query: '2/team/get_info', query_data: '{}', content_type: '', trace: trace)
   end
 end
