@@ -1,6 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 #Run from cron (crontab -l)
 #1 8,12,16,20 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cron.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/last_run.log 2>&1
+#
+export no_proxy=localhost,127.0.0.1,localaddress,.auckland.ac.nz,keystone.rc.nectar.org.au
+export https_proxy=http://squid.auckland.ac.nz:3128
+export http_proxy=http://squid.auckland.ac.nz:3128
 #
 RM="/bin/rm"
 LOCKFILE="/home/figshare/bin/lockfile"
