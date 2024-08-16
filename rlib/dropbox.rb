@@ -182,7 +182,7 @@ class Dropbox
   # Set the team folder's inherited policy
   # @param folder_id [String] Folder ID
   # @param policy [Hash] if nil, Set to our defaults
-  # @param user_id [String] Team user's UUID
+  # @param user_id [String] Team user's UUID (Only works if user is a folder member. Pass admin_id to initialize)
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @return [Hash] result from dropbox
   def team_folder_update_policy(folder_id:, policy: nil, user_id: nil, trace: false)
