@@ -131,6 +131,8 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
       begin
         r = @dbx_file.team_folder_create(folder: team_folder, trace: trace) # Gives conflict error if the team folder already exists
         team_folder_id = r['team_folder_id']
+        # New with Teams Spaces. We need to set the acls that user folders will inherit. Default is now to not let users share.
+        @dbx_person.team_folder_update_policy(folder_id: team_folder_id)
       rescue WIKK::WebBrowser::Error => _e
         warn 'Error: In create_dropbox_team_folder_from_research_code(): Creating team folder failed.'
         return
