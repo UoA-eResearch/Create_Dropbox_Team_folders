@@ -289,7 +289,7 @@ class Dropbox
           member_surname: m['surname'],
           member_external_id: m['external_id'],
           send_welcome_email: send_welcome,
-          role: { '.tag' => member_only }
+          role: { '.tag' => 'member_only' }
         }
       end
       member_query = { new_members: member_details_json }
