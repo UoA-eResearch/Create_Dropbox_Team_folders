@@ -160,14 +160,18 @@ def create_dropbox_team_folder_from_research_code(research_projects:, dryrun: fa
 
   begin
     group_id = update_dropbox_group(group_name: rw_group, email_list: email_addresses_rw, dryrun: dryrun, trace: trace)
-    @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'editor', trace: trace) unless dryrun
+    if team_group_acl(folder_name: team_folder, group_name: rw_group).nil? && !dryrun
+      @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'editor', trace: trace)
+    end
   rescue WIKK::WebBrowser::Error => _e
     # Ignore web errors
   end
 
   begin
     group_id = update_dropbox_group(group_name: ro_group, email_list: email_addresses_ro, dryrun: dryrun, trace: trace)
-    @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'viewer', trace: trace) unless dryrun
+    if team_group_acl(folder_name: team_folder, group_name: ro_group).nil? && !dryrun
+      @dbx_person.add_group_folder_member(folder_id: team_folder_id, group_id: group_id, access_role: 'viewer', trace: trace)
+    end
   rescue WIKK::WebBrowser::Error => _e
     # Ignore web errors
   end
@@ -264,11 +268,21 @@ def get_group_id(group_name:, trace: false)
 end
 
 # Prefetch all team folder ids from Dropbox, so we can look up team folder IDs by team folder name
+# Also cache the current groups in the member ACL, so we can avoid making so many blind ACL updates.
 # @param trace [Boolean] Dump raw results from Dropbox API
 def cache_all_team_folder_ids(trace: false)
   @team_folder_id_map = {}
   @dbx_file.team_folder_list(trace: trace) do |tf|
-    @team_folder_id_map[tf['name']] = tf['team_folder_id']
+    @team_folder_id_map[tf['name']] = { team_folder_id: tf['team_folder_id'], groups: {} }
+    begin
+      @dbx_person.list_folder_members(folder_id: tf['team_folder_id']) do |member|
+        member['groups'].each do |group|
+          @team_folder_id_map[tf['name']][:groups][group['group']['group_name']] = group['access_type']['.tag']
+        end
+      end
+    rescue WIKK::WebBrowser::Error, StandardError => e
+      warn("Error: Caching Groups for Folder #{tf['name']}: #{e}")
+    end
   end
 end
 
@@ -277,7 +291,15 @@ end
 # @param trace [Boolean] Dump raw results from Dropbox API
 def get_team_folder_id(folder_name:, trace: false)
   cache_all_team_folder_ids(trace: trace) if @team_folder_id_map.nil?
-  return @team_folder_id_map[folder_name]
+  return @team_folder_id_map[folder_name][:team_folder_id]
+end
+
+# Map team folder name to team folder ID, as all dropbox calls are by team folder ID.
+# @param folder_name [String] Dropbox team folder name
+# @param trace [Boolean] Dump raw results from Dropbox API
+def team_group_acl(folder_name:, group_name:, trace: false)
+  cache_all_team_folder_ids(trace: trace) if @team_folder_id_map.nil?
+  return @team_folder_id_map[folder_name][:groups][group_name]
 end
 
 # Prefetch all team members from Dropbox, so we can check if a user already exists.
