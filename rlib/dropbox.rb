@@ -58,7 +58,7 @@ class Dropbox
       rescue StandardError => e
         backtrace = e.backtrace[0].split(':')
         p backtrace
-        warn "Error: (#{File.basename(backtrace[-3])} #{backtrace[-2]}): #{e.message.to_s.gsub(/'/, '\\\'')}".gsub(/\n/, ' ').gsub(/</, '&lt;').gsub(/>/, '&gt;')
+        warn "Error: (#{File.basename(backtrace[-3])} #{backtrace[-2]}): #{e.message.to_s.gsub("'", '\\\'')}".gsub("\n", ' ').gsub('<', '&lt;').gsub('>', '&gt;')
       end
     end
   end
