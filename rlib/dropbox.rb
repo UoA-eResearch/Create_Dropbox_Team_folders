@@ -1,6 +1,5 @@
 require 'wikk_webbrowser'
 require 'json'
-require 'pp'
 require 'time'
 
 # Encapsulate Dropbox API REST calls
@@ -386,10 +385,7 @@ class Dropbox
   # @param trace [Boolean] If true, then print result of the query to stdout
   # @return [String] Json response from dropbox
   def group_add_members(emails:, external_group_id: nil, group_id: nil, trace: false)
-    members = []
-    emails.each do |e|
-      members << { user: { '.tag': 'email', email: e }, access_type: { '.tag': 'member' } }
-    end
+    members = emails.map { |e| { user: { '.tag': 'email', email: e }, access_type: { '.tag': 'member' } } }
     group_query = if group_id.nil?
                     { group: { '.tag': 'group_external_id', group_external_id: external_group_id }, members: members }
                   else
@@ -400,10 +396,7 @@ class Dropbox
   end
 
   def group_remove_members(emails:, external_group_id: nil, group_id: nil, trace: false)
-    members = []
-    emails.each do |e|
-      members << { '.tag': 'email', email: e }
-    end
+    members = emails.map { |e| { '.tag': 'email', email: e } }
     group_query = if group_id.nil?
                     { group: { '.tag': 'group_external_id', group_external_id: external_group_id }, users: members }
                   else

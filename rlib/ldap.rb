@@ -27,9 +27,7 @@ class UOA_LDAP
     response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
-    attr_list = []
-    attributes.each { |k, _v| attr_list << k }
-    @ldap.search( base: @treebase, filter: filter, attributes: attr_list ) do |entry|
+    @ldap.search( base: @treebase, filter: filter, attributes: attributes.keys ) do |entry|
       attributes.each do |attribute, value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -46,9 +44,7 @@ class UOA_LDAP
     response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{upi}")
-    attr_list = []
-    attributes.each { |k, _v| attr_list << k }
-    @ldap.search( base: @treebase, filter: filter, attributes: attr_list ) do |entry|
+    @ldap.search( base: @treebase, filter: filter, attributes: attributes.keys ) do |entry|
       attributes.each do |attribute, value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -65,9 +61,7 @@ class UOA_LDAP
     response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('mail', "#{email}")
-    attr_list = []
-    attributes.each { |k, _v| attr_list << k }
-    @ldap.search( base: @treebase, filter: filter, attributes: attr_list ) do |entry|
+    @ldap.search( base: @treebase, filter: filter, attributes: attributes.keys ) do |entry|
       attributes.each do |attribute, value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -84,9 +78,7 @@ class UOA_LDAP
     response = {}
     @treebase = 'dc=UoA,dc=auckland,dc=ac,dc=nz'
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('proxyaddresses', "smtp:#{email}")
-    attr_list = []
-    attributes.each { |k, _v| attr_list << k }
-    @ldap.search( base: @treebase, filter: filter, attributes: attr_list ) do |entry|
+    @ldap.search( base: @treebase, filter: filter, attributes: attributes.keys ) do |entry|
       attributes.each do |attribute, value|
         response[value] = entry[attribute][0].to_s.strip
       end
@@ -149,7 +141,7 @@ class UOA_LDAP
   def old_memberof?(user:, group:, quiet: false ) # rubocop:disable Lint/UnusedMethodArgument # Want this method to have a standard set of arguments
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{user}*")
     @ldap.search( base: @treebase, filter: filter, attributes: [ 'memberOf' ] ) do |entry|
-      entry.each do |_attribute, values|
+      entry.each_value do |values|
         values.each do |value|
           cn = value.strip.split(',')[0].split('=')[1]
           return true if group == cn
