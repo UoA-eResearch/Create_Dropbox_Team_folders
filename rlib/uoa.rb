@@ -291,6 +291,8 @@ end
 # @param trace [Boolean] Dump raw results from Dropbox API
 def get_team_folder_id(folder_name:, trace: false)
   cache_all_team_folder_ids(trace: trace) if @team_folder_id_map.nil?
+  return nil if @team_folder_id_map[folder_name].nil?
+
   return @team_folder_id_map[folder_name][:team_folder_id]
 end
 
@@ -299,6 +301,8 @@ end
 # @param trace [Boolean] Dump raw results from Dropbox API
 def team_group_acl(folder_name:, group_name:, trace: false)
   cache_all_team_folder_ids(trace: trace) if @team_folder_id_map.nil?
+  return nil if @team_folder_id_map[folder_name].nil?
+
   return @team_folder_id_map[folder_name][:groups][group_name]
 end
 
