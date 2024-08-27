@@ -308,15 +308,16 @@ end
 
 # Prefetch all team members from Dropbox, so we can check if a user already exists.
 # This will allow us to spot cases of a user's email address changing, without having to get a 409 error.
+# @param member [Hash] A Hash of the LDAP response record, for a user. Recorded per user from Team member info
 # @param trace [Boolean] Dump raw results from Dropbox API
-def cache_all_team_members(trace: false)
+def cache_all_team_members(member:, trace: false)
   @partial_entries = []
   @team_member_map = {}
   @team_member_email_map = {} # Shouldn't need this, but manual entries through the web interface can cause conflicts.
   @dbx_info.team_list(trace: trace) do |tf|
     upi = tf['profile']['external_id']
     if upi != nil && upi != ''
-      @team_member_email_map[tf['profile']['email']] = upi
+      @team_member_email_map[tf['profile']['email']] = upi # Mapping table: from email to upi
       tf['profile']['role'] = tf['role']['.tag'] # Shift the role, into the profile
       @team_member_map[upi] = tf['profile']
     else # These are problematic, as they can conflict with automatically added ones.
@@ -328,6 +329,8 @@ def cache_all_team_members(trace: false)
   end
 end
 
+# Set fields of @team_member_map[member['external_id']] from the passed in member record.
+# @param member [Hash] A Hash of the LDAP response record, for a user. Recorded per user from Team member info
 def update_team_member_map(member:)
   @team_member_map[member['external_id']] ||= {} # Create entry, if it doesn't exist
 
@@ -345,7 +348,7 @@ end
 # Relies on having the DropBox external_id set to the UOA Login
 # @param member [Hash] Struct created from LDAP fetch of users attributes
 def email_address_changed?(member:)
-  cache_all_team_members if @team_member_map.nil?
+  cache_all_team_members(member: member) if @team_member_map.nil?
   return member_exists?(member: member) && @team_member_map[member['external_id']]['email'] != member['email']
 end
 
@@ -353,7 +356,7 @@ end
 # Relies on having the DropBox external_id set to the UOA Login
 # @param member [Hash] Struct created from LDAP fetch of users attributes
 def member_exists?(member:)
-  cache_all_team_members if @team_member_map.nil?
+  cache_all_team_members(member: member) if @team_member_map.nil?
   return @team_member_map[member['external_id']] != nil
 end
 
