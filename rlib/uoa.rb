@@ -310,7 +310,7 @@ end
 # This will allow us to spot cases of a user's email address changing, without having to get a 409 error.
 # @param member [Hash] A Hash of the LDAP response record, for a user. Recorded per user from Team member info
 # @param trace [Boolean] Dump raw results from Dropbox API
-def cache_all_team_members(member:, trace: false)
+def cache_all_team_members(member: nil, trace: false)
   @partial_entries = []
   @team_member_map = {}
   @team_member_email_map = {} # Shouldn't need this, but manual entries through the web interface can cause conflicts.
@@ -324,7 +324,7 @@ def cache_all_team_members(member:, trace: false)
       tf['profile']['role'] = tf['role']['.tag'] # Shift the role, into the profile
       @partial_entries << tf['profile']
       @team_member_email_map[tf['profile']['email']] = '' # Unknown UPI, or more likely, a student and staff email conflict.
-      @team_member_map[member['external_id']]['bad_email'] = false  # Until we prove otherwise
+      @team_member_map[member['external_id']]['bad_email'] = false unless member.nil? # Until we prove otherwise
     end
   end
 end
