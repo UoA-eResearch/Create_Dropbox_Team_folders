@@ -40,7 +40,7 @@ class Dropbox
         puts JSON.pretty_generate(h) if trace
         return h
       rescue WIKK::WebBrowser::Error => e
-        if e.web_return_code == 429 # Too Many Requests
+        if e.web_return_code == 429 || e.web_return_code == 500 # Too Many Requests or Bad server in Pool.
           retry_count += 1
           sleep retry_count * 15
           if retry_count <= 4
