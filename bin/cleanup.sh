@@ -1,13 +1,13 @@
 #!/bin/bash
 #Run from cron (crontab -l)
-#1 8,12,16,20 * * * /home/figshare/dropbox_gen_groups_from_ldap/bin/cron.sh > /home/figshare/dropbox_gen_groups_from_ldap/log/last_run.log 2>&1
+#1 8,12,16,20 * * * /home/dropbox/bin/cron.sh > /home/dropbox/log/last_run.log 2>&1
 #
-export no_proxy=localhost,127.0.0.1,localaddress,.auckland.ac.nz,keystone.rc.nectar.org.au
-export https_proxy=http://squid.auckland.ac.nz:3128
-export http_proxy=http://squid.auckland.ac.nz:3128
-#
+base_dir="/home/dropbox"
+# Now need a proxy to get out
+. ${base_dir}/conf/proxy
+
 RM="/bin/rm"
-LOCKFILE="/home/figshare/bin/lockfile"
+LOCKFILE="${base_dir}/bin/lockfile"
 TMP_DIR="/tmp"
 LOCK_PID_FILE=${TMP_DIR}/dropbox_cleanup.lock
 log_date=`/bin/date "+%Y-%m-%d-%H"`

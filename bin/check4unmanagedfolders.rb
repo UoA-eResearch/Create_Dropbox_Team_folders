@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/home/dropbox/ruby3/bin/ruby
 require 'time'
 require 'wikk_configuration'
 require_relative '../rlib/ldap.rb' # json to class with accessor methods

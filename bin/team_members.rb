@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/home/dropbox/ruby3/bin/ruby
 require 'wikk_configuration'
 require_relative '../rlib/dropbox.rb'
 require_relative '../rlib/uoa.rb' # Localized front ends to dropbox and ldap calls.
