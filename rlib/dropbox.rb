@@ -555,7 +555,6 @@ class Dropbox
     query_data_a[:new_email] = new_email if new_email
 
     if id != nil && query_data_a.length > 1
-      puts query_data_a.join(',')
       dropbox_query(query: '2/team/members/set_profile', query_data: query_data_a, trace: trace)
     end
   end

@@ -217,6 +217,7 @@ def add_missing_members(members_arr:, dryrun: false, trace: false)
           @dbx_mng.team_members_set_profile(email: @team_member_map[m['external_id']]['email'], new_email: m['email'], trace: trace) unless dryrun
           update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
         rescue WIKK::WebBrowser::Error, StandardError => _e
+          # Error is caught and logged by team_members_set_profile, so we don't need to log it here.
           # We couldn't fix this user's email address, so we don't want to continue trying to work with the bad one
           m['bad_email'] = true # updates the entry in the cached copy of team members, so we don't try and change it again.
           update_team_member_map(member: m) # updates the entry in the cached copy of team members, so we don't try and change it again.
