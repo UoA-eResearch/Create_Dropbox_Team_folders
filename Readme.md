@@ -79,3 +79,11 @@ Nb. Admin user authentication changed ~August 2018. Now admin functions that wou
 * Adding a non-team member to a group is an error too. This is not just people external to UoA, but anyone in UoA who hasn't been added to the team (so we automatically add UoA staff, if they appear in one of the LDAP groups being used as an ACL).
 
 * Dropbox API is very slow, so don't increase the frequency of the cron jobs
+  * Current Crontab
+  ```
+  # m h  dom mon dow   command
+  # Nightly cleanup of old accounts. They get removed if they have both no affiliation with the UoA, and are not in a research project.
+  9 0 * * * umask 027; /home/dropbox/bin/cleanup.sh > /home/dropbox/log/cleanup.log 2>&1
+  # 4 hourly updates
+  9 8,12,16,20 * * * umask 027; /home/dropbox/bin/cron.sh > /home/dropbox/log/last_run.log 2>&1
+  ```
