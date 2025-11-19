@@ -17,7 +17,7 @@ def fetch_group_and_email_addresses(groupname:, second_go: false )
     m['email'] = m['email'].downcase
     m['email'] = @manual_users[m['external_id']]['email'] unless @manual_users[m['external_id']].nil? # Override email, if in exceptions
 
-    if m['email'] =~ /^.+@auckland\.ac\.nz$/ || m['email'] =~ /^.+@aucklanduni\.ac\.nz$/
+    if m['email'] =~ /^.+@(?:cs\.)?auckland\.ac\.nz$/ || m['email'] =~ /^.+@aucklanduni\.ac\.nz$/
       email_addresses << m['email']
     else
       aucklanduni_email = "#{m['external_id']}@aucklanduni.ac.nz".downcase
