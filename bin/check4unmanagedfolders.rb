@@ -97,7 +97,7 @@ def load_projects
 end
 
 def check_for_unmanaged_folders
-  @team_folder_id_map.each do |name, _id|
+  @team_folder_id_map.each_key do |name|
     warn "Unmanaged Team Folder #{name}" if @research_project_research_code_map[name].nil?
   end
 end

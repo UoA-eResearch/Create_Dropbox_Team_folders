@@ -87,8 +87,8 @@ def process_manual_groups(dryrun: DRYRUN, trace: TRACE)
     next if existing_research_group?(groupname: groupname) # No manual overriding of LDAP research groups.
 
     begin
-      email_address_list = []  # create a blank email list for this group
-      members.each { |m| email_address_list << m['email'] } # add users emails to the group
+      # create a blank email list for this group
+      email_address_list = members.map { |m| m['email'] } # add users emails to the group
       @failed_to_add.each { |email| email_address_list.delete(email) }
       # Do a diff, and add or remove users from the dropbox group.
       update_dropbox_group(group_name: groupname, email_list: email_address_list, dryrun: dryrun, trace: trace)

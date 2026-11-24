@@ -277,7 +277,7 @@ class Dropbox
     # Limited to adding 20 members at a time, so create sub arrays of size 20 or less, and process each one.
     failed_to_add = [] # If we get an error adding one person, add them to this array and carry on.
     (0..members_details.length).step(20) do |i|
-      members_details_20 = members_details[i..i + 19]
+      members_details_20 = members_details[i..(i + 19)] # Nb. Ruby returns only the remaining members (i.e. truncates response to [i..-1]).
       member_details_json = []
       members_details_20.each do |m|
         next unless m != nil # Shouldn't ever get a nil

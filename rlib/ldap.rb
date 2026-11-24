@@ -138,7 +138,7 @@ class UOA_LDAP
     return false
   end
 
-  def old_memberof?(user:, group:, quiet: false ) # rubocop:disable Lint/UnusedMethodArgument # Want this method to have a standard set of arguments
+  def old_memberof?(user:, group:, quiet: false ) # rubocop:disable Lint/UnusedMethodArgument -- Want this method to have a standard set of arguments
     filter = Net::LDAP::Filter.eq( 'objectCategory', 'user' ) & Net::LDAP::Filter.eq('cn', "#{user}*")
     @ldap.search( base: @treebase, filter: filter, attributes: [ 'memberOf' ] ) do |entry|
       entry.each_value do |values|

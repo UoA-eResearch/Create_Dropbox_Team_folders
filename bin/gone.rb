@@ -46,7 +46,7 @@ def record_research_groups_and_users
   end
 
   manual_entries = JSON.parse(File.read("#{__dir__}/../conf/exceptions.json"))
-  manual_entries.each do |upi, _r|
+  manual_entries.each_key do |upi|
     @research_project_users[upi] = true
   end
 end
@@ -110,7 +110,7 @@ def check_user_membership
                    if in_out == 'No' && !deleted
                      puts "Disconnecting #{upi} #{profile['email']}: No affiliation, with no project"
                      # Can't keep an invited, but not accepted account.
-                     @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: true)
+                     @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: invited ? false:true)
                    end
                    'No affiliation'
                  end
