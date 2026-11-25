@@ -67,14 +67,17 @@ def check_user_membership
         @counters["#{category} Old #{in_out} Proj"] ||= 0
         @counters["#{category} Old #{in_out} Proj"] += 1
         if in_out == 'No'
-          puts "Deleting #{upi} #{profile['email']}: old invite, with no project"
+          puts "Deleting #{upi} #{profile['email']}: old invite, No project"
           # Can't keep an invited, but not accepted account.
           @dbx_mng.team_remove_member(team_member_id: profile['team_member_id'], keep_account: false)
           deleted = true
+        else
+          puts "Invited #{upi} #{profile['email']}: old invite, #{in_out} project"
         end
       else # Recent additions
         @counters["#{category} #{in_out} Proj"] ||= 0
         @counters["#{category} #{in_out} Proj"] += 1
+        puts "Invited #{upi} #{profile['email']}: recent invite, #{in_out} project"
       end
     end
 
